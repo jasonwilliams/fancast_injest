@@ -26,7 +26,7 @@ func main() {
 	}
 
 	// make sure we're fetching the correct URL, if there's been a 301, this will use the new endpoint
-	url := fetchConanicalUrl("http://atp.fm/episodes?format=rss")
+	url := fetchConanicalUrl("http://podcasts.files.bbci.co.uk/b00lvdrj.rss")
 	fp := gofeed.NewParser()
 	feed, err := fp.ParseURL(url)
 	if err != nil {
@@ -48,7 +48,11 @@ func fetchConanicalUrl(feed string) string {
 		CheckRedirect: redirectPolicyFunc,
 	}
 
-	resp, _ := client.Get(feed)
+	resp, err := client.Get(feed)
+	if err != nil {
+		log.Println("error fetching feed")
+		log.Fatal(err)
+	}
 	location, err := resp.Location()
 	if err != nil {
 		return feed
