@@ -14,6 +14,12 @@
   version = "v1.0.0"
 
 [[projects]]
+  branch = "master"
+  name = "github.com/cnf/structhash"
+  packages = ["."]
+  revision = "62a607eb02243845670f25a61cbc2d394c1ede10"
+
+[[projects]]
   name = "github.com/fsnotify/fsnotify"
   packages = ["."]
   revision = "c2828203cd70a50dcccfb2761f8b1f8ceef9a8e9"
@@ -171,6 +177,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "f2e99149d44c67de6bf495d560b75a726cac9146987e0e541fc8fd18b0449a18"
+  inputs-digest = "d00b45ee50a3b1e429a8fdd5a89e2fc213e7f6901a344854e0e94afbdbf707bd"
   solver-name = "gps-cdcl"
   solver-version = 1
