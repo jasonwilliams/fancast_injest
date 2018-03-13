@@ -19,6 +19,9 @@ func Injest(url string) {
 	viper.SetConfigName("config") // name of config file (without extension)
 	viper.SetConfigType("json")   //
 	viper.AddConfigPath(".")
+	viper.BindEnv("database.user", "DB_USER")
+	viper.BindEnv("database.database", "DB_NAME")
+	viper.BindEnv("database.password", "DB_PASS")
 	err := viper.ReadInConfig() // Find and read the config file
 	if err != nil {             // Handle errors reading the config file
 		panic(fmt.Errorf("Fatal error config file: %s \n", err))
