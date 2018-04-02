@@ -20,16 +20,36 @@ var (
 	connErr error
 )
 
-// ProcessPodcast will take a feed object and start inserting the properties into the database
-// It will also need to generate an ID for each podcast aswell
-func process(feed *gofeed.Feed, url string) {
+func init() {
+	// Setup Viper Config
+	setupConfig()
+
 	// Connect to the database
+	log.Println("Connecting to Database..")
 	connStr := fmt.Sprintf("user=%s dbname=%s password=%s", viper.Get("database.user"), viper.Get("database.database"), viper.Get("database.password"))
 	db, connErr = sql.Open("postgres", connStr)
 	if connErr != nil {
 		log.Fatal(connErr)
 	}
+}
 
+func setupConfig() {
+	// Setup Config
+	viper.SetConfigName("config") // name of config file (without extension)
+	viper.SetConfigType("json")   //
+	viper.AddConfigPath(".")
+	viper.BindEnv("database.user", "DB_USER")
+	viper.BindEnv("database.database", "DB_NAME")
+	viper.BindEnv("database.password", "DB_PASS")
+	err := viper.ReadInConfig() // Find and read the config file
+	if err != nil {             // Handle errors reading the config file
+		panic(fmt.Errorf("Fatal error config file: %s \n", err))
+	}
+}
+
+// ProcessPodcast will take a feed object and start inserting the properties into the database
+// It will also need to generate an ID for each podcast aswell
+func process(feed *gofeed.Feed, url string) {
 	// Does the podcast already exist?
 	var doesPodcastExist bool
 	var id string

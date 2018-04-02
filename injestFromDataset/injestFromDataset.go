@@ -2,9 +2,10 @@ package injestFromDataset
 
 import (
 	"encoding/csv"
-	"fmt"
 	"log"
 	"os"
+
+	"bitbucket.org/jayflux/mypodcasts_injest/injest"
 )
 
 func CrawlDataset() {
@@ -19,8 +20,14 @@ func CrawlDataset() {
 		log.Fatal(err)
 	}
 
+	// Create channel to put our URLS into
+	// We don't want to overload the injestor, so lets buffer to 5
+	urls := make(chan string)
+	go injest.Injest(urls)
+
 	for _, each := range records {
-		fmt.Println(each[3])
+		urls <- each[3]
 	}
+	close(urls)
 
 }

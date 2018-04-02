@@ -18,8 +18,11 @@ import (
 	_ "github.com/lib/pq"
 )
 
-func checkPodcastUrl(url string) string {
-	isRedirect, newEndpoint := fetchConanicalUrl(url)
+func checkPodcastUrl(url string) (string, error) {
+	isRedirect, newEndpoint, err := fetchConanicalUrl(url)
+	if err != nil {
+		return "", err
+	}
 	if isRedirect {
 		log.Printf("There has been a redirect from %s to %s\n", url, newEndpoint)
 		if urlExistsInDB(url) {
@@ -27,9 +30,9 @@ func checkPodcastUrl(url string) string {
 			updatePodcastUrl(url, newEndpoint)
 		}
 
-		return newEndpoint
+		return newEndpoint, nil
 	}
-	return url
+	return url, nil
 }
 
 func updatePodcastUrl(oldUrl string, newUrl string) {
@@ -74,7 +77,7 @@ func redirectPolicyFunc(req *http.Request, via []*http.Request) error {
 
 // Return false plus the original URL if there has been no redirect
 // Return true plus the new URL if there is a redirect
-func fetchConanicalUrl(feed string) (bool, string) {
+func fetchConanicalUrl(feed string) (bool, string, error) {
 	client := &http.Client{
 		CheckRedirect: redirectPolicyFunc,
 	}
@@ -83,12 +86,13 @@ func fetchConanicalUrl(feed string) (bool, string) {
 	if err != nil {
 		log.Println("error fetching feed")
 		log.Println(err)
+		return false, "", err
 	}
 	location, err := resp.Location()
 	if err != nil {
-		return false, feed
+		return false, feed, nil
 	}
 
-	return true, location.String()
+	return true, location.String(), nil
 
 }
