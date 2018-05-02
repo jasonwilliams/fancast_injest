@@ -14,6 +14,7 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"time"
 
 	_ "github.com/lib/pq"
 )
@@ -80,6 +81,7 @@ func redirectPolicyFunc(req *http.Request, via []*http.Request) error {
 func fetchConanicalUrl(feed string) (bool, string, error) {
 	client := &http.Client{
 		CheckRedirect: redirectPolicyFunc,
+		Timeout:       10 * time.Second,
 	}
 
 	resp, err := client.Get(feed)

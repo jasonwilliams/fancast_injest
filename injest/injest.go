@@ -14,7 +14,7 @@ var (
 	url       string
 )
 
-func Injest(input chan string) {
+func Injest(input chan string, status chan int) {
 	// make sure we're fetching the correct URL, if there's been a 301, this will use the new endpoint
 	// This function will also update the DB if there has been a redirect
 	for url := range input {
@@ -35,4 +35,7 @@ func Injest(input chan string) {
 		process(feed, url)
 
 	}
+
+	// Signal that we have finished
+	status <- 1
 }

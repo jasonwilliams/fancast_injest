@@ -20,8 +20,11 @@ func main() {
 	switch *build {
 	case "injest":
 		urls := make(chan string, 1)
-		injest.Injest(urls)
+		status := make(chan int)
+		go injest.Injest(urls, status)
 		urls <- flag.Arg(0)
+		close(urls)
+		<-status
 	case "tsv":
 		injestFromDataset.CrawlDataset()
 	}

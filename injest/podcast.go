@@ -55,7 +55,7 @@ func process(feed *gofeed.Feed, url string) {
 	var id string
 
 	// Is there a new-feed element? And is it set to the same URL? (BBC ones seem to point to the same URL)
-	if feed.ITunesExt.NewFeedURL != "" && feed.ITunesExt.NewFeedURL != url {
+	if feed.ITunesExt != nil && feed.ITunesExt.NewFeedURL != "" && feed.ITunesExt.NewFeedURL != url {
 		log.Printf("new feed detected from itunes-new-feed-url: %s", feed.ITunesExt.NewFeedURL)
 
 		// If this is an existing podcast the old URL may exist, in which case we want to replace.

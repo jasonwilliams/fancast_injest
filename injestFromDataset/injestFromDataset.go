@@ -23,7 +23,8 @@ func CrawlDataset() {
 	// Create channel to put our URLS into
 	// We don't want to overload the injestor, so lets buffer to 5
 	urls := make(chan string)
-	go injest.Injest(urls)
+	status := make(chan int)
+	go injest.Injest(urls, status)
 
 	for _, each := range records {
 		urls <- each[3]
