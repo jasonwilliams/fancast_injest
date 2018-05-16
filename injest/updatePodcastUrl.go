@@ -14,10 +14,13 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"regexp"
 	"time"
 
 	_ "github.com/lib/pq"
 )
+
+var redirectErr *regexp.Regexp = regexp.MustCompile(`Don't redirect`)
 
 func checkPodcastUrl(url string) (string, error) {
 	isRedirect, newEndpoint, err := fetchConanicalUrl(url)
@@ -87,9 +90,17 @@ func fetchConanicalUrl(feed string) (bool, string, error) {
 	resp, err := client.Get(feed)
 	if err != nil {
 		log.Println("error fetching feed")
+		// It could be a redirect....
+		if redirectErr.MatchString(err.Error()) {
+			log.Println("Redirect found... ")
+			log.Println(resp.Header.Get("Location"))
+			return true, resp.Header.Get("Location"), nil
+		}
+		// Any other errors
 		log.Println(err)
 		return false, "", err
 	}
+
 	location, err := resp.Location()
 	if err != nil {
 		return false, feed, nil

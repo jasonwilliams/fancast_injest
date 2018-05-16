@@ -21,8 +21,8 @@ func main() {
 	case "injest":
 		urls := make(chan string, 1)
 		status := make(chan int)
-		go injest.Injest(urls, status)
 		urls <- flag.Arg(0)
+		go injest.Injest(urls, status)
 		close(urls)
 		<-status
 	case "tsv":
