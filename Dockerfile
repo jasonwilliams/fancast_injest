@@ -42,3 +42,4 @@ RUN /usr/lib/go-1.10/bin/go get -u github.com/golang/dep/cmd/dep
 ENTRYPOINT /var/local/mypodcasts/docker/entrypoint_ci
 
 EXPOSE 80
+EXPOSE 5432
