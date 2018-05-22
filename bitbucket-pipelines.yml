@@ -4,7 +4,6 @@
 # -----
 # You can specify a custom docker image from Docker Hub as your build environment.
 image: golang:1.10.2-stretch
-deployment: production
 options:
   docker: true
 
