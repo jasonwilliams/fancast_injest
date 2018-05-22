@@ -6,10 +6,12 @@ import (
 
 	"bitbucket.org/jayflux/mypodcasts_injest/injest"
 	"bitbucket.org/jayflux/mypodcasts_injest/injestFromDataset"
+	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/spf13/viper"
 )
 
 var build = flag.String("build", "", "Specify type of build")
+var updateDB = flag.Bool("updateDB", false, "Update the DB from Spaces Bucket")
 
 func main() {
 	// Setup Config
@@ -27,6 +29,10 @@ func main() {
 		<-status
 	case "tsv":
 		injestFromDataset.CrawlDataset()
+	}
+
+	if updateDB {
+
 	}
 
 }

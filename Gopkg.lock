@@ -14,22 +14,48 @@
   version = "v1.0.0"
 
 [[projects]]
+  name = "github.com/aws/aws-sdk-go"
+  packages = [
+    "aws",
+    "aws/awserr",
+    "aws/awsutil",
+    "aws/client",
+    "aws/client/metadata",
+    "aws/credentials",
+    "aws/endpoints",
+    "aws/request",
+    "aws/signer/v4",
+    "internal/sdkio",
+    "internal/sdkrand",
+    "internal/shareddefaults",
+    "private/protocol",
+    "private/protocol/query",
+    "private/protocol/query/queryutil",
+    "private/protocol/rest",
+    "private/protocol/restxml",
+    "private/protocol/xml/xmlutil",
+    "service/s3"
+  ]
+  revision = "cf00d544fc3c02f31e05e8d02444a1325d3a840b"
+  version = "v1.13.53"
+
+[[projects]]
   branch = "master"
   name = "github.com/cnf/structhash"
   packages = ["."]
   revision = "62a607eb02243845670f25a61cbc2d394c1ede10"
 
 [[projects]]
-  branch = "master"
-  name = "github.com/dogenzaka/tsv"
-  packages = ["."]
-  revision = "8e02e611b1fb06f657b075f37e8770db156a101a"
-
-[[projects]]
   name = "github.com/fsnotify/fsnotify"
   packages = ["."]
   revision = "c2828203cd70a50dcccfb2761f8b1f8ceef9a8e9"
   version = "v1.4.7"
+
+[[projects]]
+  name = "github.com/go-ini/ini"
+  packages = ["."]
+  revision = "6529cf7c58879c08d927016dde4477f18a0634cb"
+  version = "v1.36.0"
 
 [[projects]]
   branch = "master"
@@ -46,6 +72,11 @@
     "json/token"
   ]
   revision = "23c074d0eceb2b8a5bfdbb271ab780cde70f05a8"
+
+[[projects]]
+  name = "github.com/jmespath/go-jmespath"
+  packages = ["."]
+  revision = "0b12d6b5"
 
 [[projects]]
   branch = "master"
@@ -183,6 +214,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "d592c75e9f174e91d511127b771779a7c3974ef0c579fe6f1bceed7053008ef3"
+  inputs-digest = "9fa8d469d0293fd8c432b9fdda4b3fb5c10f55252ede9d411203abd6195ad4d1"
   solver-name = "gps-cdcl"
   solver-version = 1
