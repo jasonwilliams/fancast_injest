@@ -16,6 +16,9 @@ RUN echo "deb http://apt.postgresql.org/pub/repos/apt/ zesty-pgdg main" > /etc/a
 RUN wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add -
 RUN apt-get update -y
 RUN apt-get install postgresql-10 -y
+RUN echo "listen_addresses = '*'" >> /etc/postgresql/10/main/postgresql.conf
+RUN echo "host    all             all              0.0.0.0/0              md5" >> /etc/postgresql/10/main/pg_hba.conf
+RUN echo "host    all             all              ::/0                   md5" >> /etc/postgresql/10/main/pg_hba.conf
 
 # Create the "fancast" user
 # Give build access to this env, passed in via docker build
