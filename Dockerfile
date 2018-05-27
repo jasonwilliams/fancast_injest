@@ -20,7 +20,7 @@ RUN apt-get install postgresql-10 -y
 # Create the "fancast" user
 # Give build access to this env, passed in via docker build
 ARG AUTH_KEY
-RUN useradd -c "Fancast account" -d /home/fancast fancast
+RUN useradd -c "Fancast account" -d /home/fancast -s /bin/bash fancast
 RUN mkdir -p /home/fancast/.ssh/ && touch /home/fancast/.ssh/authorized_keys && echo $AUTH_KEY > /home/fancast/.ssh/authorized_keys
 
 # Make fancast a sudoer
@@ -53,3 +53,4 @@ ENTRYPOINT /home/fancast/src/bitbucket.org/jayflux/mypodcasts_injest/build/entry
 
 EXPOSE 80
 EXPOSE 5432
+EXPOSE 22
