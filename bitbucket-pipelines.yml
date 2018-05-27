@@ -14,5 +14,5 @@ pipelines:
           - docker
         script: # Modify the commands below to build your repository.
           - docker login -u $DOCKER_USERNAME -p $DOCKER_PASSWORD
-          - docker build -t jayflux/fancast-api --build-arg SPACES_KEY=$SPACES_KEY --build-arg SPACES_SECRET_KEY=$SPACES_SECRET_KEY --build-arg AUTH_KEY=$AUTH_KEY .
+          - make docker-build
           - docker push jayflux/fancast-api
