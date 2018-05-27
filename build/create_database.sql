@@ -1,2 +1,2 @@
-CREATE USER developer password 'dev';
-CREATE DATABASE mypodcasts WITH OWNER = developer;
+CREATE USER fancast password 'dev';
+CREATE DATABASE fancast WITH OWNER = fancast;

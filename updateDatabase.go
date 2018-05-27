@@ -1,11 +1,10 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
 	"github.com/minio/minio-go"
-	"io"
 	"log"
+	"math"
 	"os"
 	"os/exec"
 	"time"
@@ -16,6 +15,11 @@ var secKey string = os.Getenv("SPACES_SECRET_KEY")
 var ssl bool = true
 
 func updateDatabase() {
+	log.Println("[Restore] - Starting restore")
+	now := time.Now()
+	var difference float64 = math.MaxFloat64
+	var latestObject minio.ObjectInfo
+
 	// Initiate a client using DigitalOcean Spaces.
 	client, err := minio.New("ams3.digitaloceanspaces.com", accessKey, secKey, ssl)
 	if err != nil {
@@ -23,11 +27,42 @@ func updateDatabase() {
 	}
 
 	// https://docs.minio.io/docs/golang-client-api-reference#ListObjects
-	err = client.FGetObject("fancast", "database-backups/mypodcasts.gz", "./mypodcasts.gz", minio.GetObjectOptions{})
-	if err != nil {
-		fmt.Println(err)
-		return
+	// Loop through objests and get latest one
+	// Create a done channel to control 'ListObjects' go routine.
+	doneCh := make(chan struct{})
+
+	// Indicate to our routine to exit cleanly upon return.
+	defer close(doneCh)
+
+	isRecursive := true
+	// There isn't an easy way to get the latest object, so we need to loop through to find the latest one
+	objectCh := client.ListObjectsV2("fancast", "database-backups/", isRecursive, doneCh)
+	for object := range objectCh {
+		if object.Err != nil {
+			fmt.Println(object.Err)
+			return
+		}
+
+		if now.Sub(object.LastModified).Seconds() < difference {
+			difference = now.Sub(object.LastModified).Seconds()
+			latestObject = object
+		}
 	}
+
+	log.Println("Downloading latest database backup...")
+	err = client.FGetObject("fancast", latestObject.Key, "./fancast.backup", minio.GetObjectOptions{})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	log.Printf("downloaded %s, updating database", latestObject.Key)
+	cmd := exec.Command("sudo", "-u", "fancast", "pg_restore", "-c", "-d", "fancast", "--if-exists", "./fancast.backup")
+
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	cmd.Run()
+	log.Printf("%s", err)
 }
 
 func performBackup() {
@@ -35,33 +70,11 @@ func performBackup() {
 	// TODO Not local time
 	// https://stackoverflow.com/questions/20234104/how-to-format-current-time-using-a-yyyymmddhhmmss-format
 	t := time.Now().Format("2006-01-02T15-04-05")
-	fileName := "fancast-" + t + ".gz"
-
-	// First create file to put DB Output into
-	f, err := os.Create(fileName)
-	if err != nil {
-		log.Fatal(err)
-	}
+	fileName := "fancast-" + t + ".backup"
 
 	// Perform DB Backup
-	cmd := exec.Command("sudo", "-u", "developer", "pg_dump", "fancast")
-	gzip := exec.Command("gzip")
-
-	r, w := io.Pipe()
-	cmd.Stdout = w
-	gzip.Stdin = r
-
-	writer := bufio.NewWriter(f)
-	defer writer.Flush()
-
-	gzip.Stdout = writer
-
-	// https://stackoverflow.com/questions/10781516/how-to-pipe-several-commands-in-go
-	cmd.Start()
-	gzip.Start()
-	cmd.Wait()
-	w.Close()
-	gzip.Wait()
+	cmd := exec.Command("sudo", "-u", "fancast", "pg_dump", "-f", fileName, "-Fc", "fancast")
+	cmd.Run()
 
 	log.Println("[backup] Writing of " + fileName + "  complete")
 
@@ -72,12 +85,15 @@ func performBackup() {
 	}
 
 	// https://docs.minio.io/docs/golang-client-api-reference#FPutObject
-	_, err = client.FPutObject("fancast", "database-backups/"+fileName, "./"+fileName, minio.PutObjectOptions{})
+	n, err := client.FPutObject("fancast", "database-backups/"+fileName, "./"+fileName, minio.PutObjectOptions{})
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
 
 	log.Println("[backup] Upload of " + fileName + " complete")
+	log.Println("Successfully uploaded bytes: ", n)
+	// Delete file once uploaded
+	// os.Remove(fileName)
 
 }

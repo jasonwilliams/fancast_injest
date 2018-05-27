@@ -17,30 +17,39 @@ RUN wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-k
 RUN apt-get update -y
 RUN apt-get install postgresql-10 -y
 
-# Create the "developer" user
-RUN useradd -c "Developer account" developer
-# Make developer a sudoer
-RUN echo 'developer ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers
+# Create the "fancast" user
+# Give build access to this env, passed in via docker build
+ARG AUTH_KEY
+RUN useradd -c "Fancast account" -d /home/fancast fancast
+RUN mkdir -p /home/fancast/.ssh/ && touch /home/fancast/.ssh/authorized_keys && echo $AUTH_KEY > /home/fancast/.ssh/authorized_keys
 
-RUN mkdir /var/local/src
-ENV GOPATH /var/local
+# Make fancast a sudoer
+RUN echo 'fancast ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers
 
-COPY . /var/local/src/bitbucket.org/jayflux/mypodcasts_injest
-RUN service postgresql start && \
-sudo -u postgres psql -f /var/local/src/bitbucket.org/jayflux/mypodcasts_injest/build/create_database.sql && \
-sudo -u developer psql mypodcasts -f /var/local/src/bitbucket.org/jayflux/mypodcasts_injest/build/create_tables.sql
+ENV GOPATH /home/fancast
 
-# RUN cp -f /var/local/mypodcasts/docker/mypodcasts.conf /etc/nginx/sites-enabled/default
+COPY . /home/fancast/src/bitbucket.org/jayflux/mypodcasts_injest
+# RUN service postgresql start && \
+# sudo -u postgres psql -f /home/fancast/src/bitbucket.org/jayflux/mypodcasts_injest/build/create_database.sql
 
-# Change to the developer user and its home folder and run the entry point script
-# USER developer
-WORKDIR /var/local/src/bitbucket.org/jayflux/mypodcasts_injest
+# Change to the fancast user and its home folder and run the entry point script
+WORKDIR /home/fancast/src/bitbucket.org/jayflux/mypodcasts_injest
 
-ENV PATH /var/local/bin:$PATH
+# Give build access to these envs, passed in via docker build
+ARG SPACES_KEY
+ARG SPACES_SECRET_KEY
+
+ENV PATH /home/fancast/bin:$PATH
 RUN /usr/lib/go-1.10/bin/go get -u github.com/golang/dep/cmd/dep
-RUN dep ensure
+RUN /home/fancast/bin/dep ensure
+RUN /usr/lib/go-1.10/bin/go build
+RUN sudo service postgresql start && sudo -u postgres psql -c "CREATE USER fancast WITH PASSWORD 'dev';" && sudo -u postgres psql -c "ALTER USER fancast WITH SUPERUSER;" && sudo -u postgres psql -c "CREATE DATABASE fancast OWNER fancast;"
+RUN service postgresql start && chown -R fancast:fancast /home/fancast && sudo -E -u fancast ./mypodcasts_injest -db update
+RUN chown -R fancast:fancast /home/fancast
 
-ENTRYPOINT /var/local/mypodcasts/docker/entrypoint_ci
+USER fancast
+
+ENTRYPOINT /home/fancast/src/bitbucket.org/jayflux/mypodcasts_injest/build/entrypoint_ci
 
 EXPOSE 80
 EXPOSE 5432
