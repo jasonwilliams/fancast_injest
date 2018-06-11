@@ -37,7 +37,7 @@ func setupConfig() {
 	// Setup Config
 	viper.SetConfigName("config") // name of config file (without extension)
 	viper.SetConfigType("json")   //
-	viper.AddConfigPath("$APP_DIR")
+	viper.AddConfigPath(".")
 	viper.BindEnv("database.user", "DB_USER")
 	viper.BindEnv("database.database", "DB_NAME")
 	viper.BindEnv("database.password", "DB_PASS")
