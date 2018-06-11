@@ -30,6 +30,8 @@ RUN mkdir -p /home/fancast/.ssh/ && touch /home/fancast/.ssh/authorized_keys && 
 RUN echo 'fancast ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers
 
 ENV GOPATH /home/fancast
+# Used by Viper Config
+ENV APP_DIR /home/fancast/src/bitbucket.org/jayflux/mypodcasts_injest
 
 COPY . /home/fancast/src/bitbucket.org/jayflux/mypodcasts_injest
 # RUN service postgresql start && \
