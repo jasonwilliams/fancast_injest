@@ -94,6 +94,6 @@ func performBackup() {
 	log.Println("[backup] Upload of " + fileName + " complete")
 	log.Println("Successfully uploaded bytes: ", n)
 	// Delete file once uploaded
-	// os.Remove(fileName)
+	os.Remove(fileName)
 
 }
