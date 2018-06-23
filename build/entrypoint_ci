@@ -1,8 +1,7 @@
 #!/bin/bash
 sudo service postgresql start
-sudo service nginx start
+# sudo service nginx start
 sudo -u fancast psql -f /home/fancast/src/bitbucket.org/jayflux/mypodcasts_injest/build/indexes.sql
 sudo -u fancast psql -c "ANALYZE"
-# Setup cronjob to backup database
-echo "1 */1 * * * cd /home/fancast/src/bitbucket.org/jayflux/mypodcasts_injest && sudo -E -u fancast env SPACES_KEY=$SPACES_KEY SPACES_SECRET_KEY=$SPACES_SECRET_KEY ./mypodcasts_injest -db=backup >> /home/fancast/dblog" | crontab -
+./mypodcasts_injest -cron=true &
 /bin/bash

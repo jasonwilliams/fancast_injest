@@ -7,10 +7,12 @@ import (
 	"bitbucket.org/jayflux/mypodcasts_injest/injest"
 	"bitbucket.org/jayflux/mypodcasts_injest/injestFromDataset"
 	"github.com/spf13/viper"
+	"gopkg.in/robfig/cron.v2"
 )
 
 var build = flag.String("build", "", "Specify type of build")
 var DB = flag.String("db", "", "update or backup")
+var updater = flag.Bool("cron", false, "Initiate application")
 
 func main() {
 	// Setup Config
@@ -37,6 +39,16 @@ func main() {
 		performBackup()
 	}
 
+	// Set up cron job to do various tasks, including backing up database
+	if *updater {
+		// https://godoc.org/gopkg.in/robfig/cron.v2
+		fmt.Println("Hello")
+		c := cron.New()
+		c.AddFunc("@hourly", func() { performBackup() })
+		go forever()
+		select {}
+	}
+
 }
 
 func setupConfig() {
@@ -51,5 +63,11 @@ func setupConfig() {
 	err := viper.ReadInConfig() // Find and read the config file
 	if err != nil {             // Handle errors reading the config file
 		panic(fmt.Errorf("Fatal error config file: %s \n", err))
+	}
+}
+
+func forever() {
+	for {
+		time.Sleep(time.Second)
 	}
 }

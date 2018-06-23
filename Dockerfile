@@ -22,9 +22,9 @@ RUN echo "host    all             all              ::/0                   md5" >
 
 # Create the "fancast" user
 # Give build access to this env, passed in via docker build
-ARG AUTH_KEY
+# ARG AUTH_KEY
 RUN useradd -c "Fancast account" -d /home/fancast -s /bin/bash fancast
-RUN mkdir -p /home/fancast/.ssh/ && touch /home/fancast/.ssh/authorized_keys && echo $AUTH_KEY > /home/fancast/.ssh/authorized_keys
+# RUN mkdir -p /home/fancast/.ssh/ && touch /home/fancast/.ssh/authorized_keys && echo $AUTH_KEY > /home/fancast/.ssh/authorized_keys
 
 # Make fancast a sudoer
 RUN echo 'fancast ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers
