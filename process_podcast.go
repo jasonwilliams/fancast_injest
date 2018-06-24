@@ -56,7 +56,6 @@ func setupConfig() {
 	// Setup Config
 	viper.SetConfigName("config") // name of config file (without extension)
 	viper.SetConfigType("json")   //
-	viper.AddConfigPath("/home/fancast/src/bitbucket.org/jayflux/mypodcasts_injest")
 	viper.AddConfigPath(".")
 	viper.BindEnv("database.user", "DB_USER")
 	viper.BindEnv("database.database", "DB_NAME")

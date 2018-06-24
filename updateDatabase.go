@@ -55,6 +55,11 @@ func updateDatabase() {
 		log.Fatal(err)
 	}
 
+	// files permissions need changing, so the fancast user can read from fancast-backup
+	if err := os.Chmod("fancast.backup", 0644); err != nil {
+		log.Fatal(err)
+	}
+
 	log.Printf("downloaded %s, updating database", latestObject.Key)
 	cmd := exec.Command("sudo", "-u", "fancast", "pg_restore", "-c", "-d", "fancast", "--if-exists", "./fancast.backup")
 
@@ -71,6 +76,11 @@ func performBackup() {
 	// https://stackoverflow.com/questions/20234104/how-to-format-current-time-using-a-yyyymmddhhmmss-format
 	t := time.Now().Format("2006-01-02T15-04-05")
 	fileName := "fancast-" + t + ".backup"
+
+	// files permissions need changing, so the fancast user can read from fancast-backup
+	if err := os.Chmod("fancast.backup", 0644); err != nil {
+		log.Fatal(err)
+	}
 
 	// Perform DB Backup
 	cmd := exec.Command("sudo", "-u", "fancast", "pg_dump", "-f", fileName, "-Fc", "fancast")
