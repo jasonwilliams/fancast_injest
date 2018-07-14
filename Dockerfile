@@ -51,6 +51,7 @@ RUN /usr/lib/go-1.10/bin/go get -u github.com/golang/dep/cmd/dep
 RUN /usr/local/bin/dep ensure
 RUN /usr/lib/go-1.10/bin/go build
 RUN service postgresql start && sudo -u postgres psql -c "CREATE USER fancast WITH PASSWORD 'dev';" && sudo -u postgres psql -c "ALTER USER fancast WITH SUPERUSER;" && sudo -u postgres psql -c "CREATE DATABASE fancast OWNER fancast;"
+RUN mkdir /var/log/fancast
 RUN service postgresql start && ./mypodcasts_injest -db update
 
 
