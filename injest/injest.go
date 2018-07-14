@@ -18,12 +18,19 @@ func Injest(input chan string, status chan int) {
 	// make sure we're fetching the correct URL, if there's been a 301, this will use the new endpoint
 	// This function will also update the DB if there has been a redirect
 	for url := range input {
-		// log.Printf("Injest: Recieved %s", url)
 		// checkPodcastUrl can fail if the url is down or 500s
-		url, err := checkPodcastUrl(url)
+		// lookahead to get metadata, such as headers, redirects etc
+		url, NotModified, err := checkPodcastUrl(url)
 		if err != nil {
+			log.Printf("%s", err)
 			continue
 		}
+
+		if NotModified {
+			log.Println("Request 304 Not Modified, continue")
+			continue
+		}
+
 		fp := gofeed.NewParser()
 		feed, err := fp.ParseURL(url)
 		if err != nil {

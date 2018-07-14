@@ -25,7 +25,6 @@ func init() {
 	setupConfig()
 
 	// Connect to the database
-	log.Println("Connecting to Database..")
 	connStr := fmt.Sprintf("user=%s dbname=%s password=%s", viper.Get("database.user"), viper.Get("database.database"), viper.Get("database.password"))
 	db, connErr = sql.Open("postgres", connStr)
 	if connErr != nil {

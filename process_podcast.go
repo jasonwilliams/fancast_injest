@@ -3,10 +3,12 @@ package main
 import (
 	"flag"
 	"fmt"
+	"log"
+	"os"
 	"time"
 
 	"bitbucket.org/jayflux/mypodcasts_injest/injest"
-	"bitbucket.org/jayflux/mypodcasts_injest/injestFromDataset"
+	"bitbucket.org/jayflux/mypodcasts_injest/injestFromBBC"
 	"github.com/spf13/viper"
 	"gopkg.in/robfig/cron.v2"
 )
@@ -19,6 +21,16 @@ func main() {
 	// Setup Config
 	setupConfig()
 
+	// Setup logging
+	f, err := os.OpenFile("/var/log/fancast/error.log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	if err != nil {
+		log.Fatalf("error opening file: %v", err)
+	}
+	defer f.Close()
+	log.SetOutput(f)
+	log.SetFlags(log.LstdFlags | log.Lshortfile)
+	log.Println("Application started")
+
 	// Parse commandline arguments
 	flag.Parse()
 	switch *build {
@@ -29,8 +41,8 @@ func main() {
 		go injest.Injest(urls, status)
 		close(urls)
 		<-status
-	case "tsv":
-		injestFromDataset.CrawlDataset()
+	case "bbc":
+		injestFromBBC.CrawlBBC()
 	}
 
 	switch *DB {
@@ -43,9 +55,10 @@ func main() {
 	// Set up cron job to do various tasks, including backing up database
 	if *updater {
 		// https://godoc.org/gopkg.in/robfig/cron.v2
-		fmt.Println("Hello")
 		c := cron.New()
 		c.AddFunc("@hourly", func() { performBackup() })
+		c.AddFunc("@weekly", func() { injestFromBBC.CrawlBBC() })
+		c.Start()
 		go forever()
 		select {}
 	}
@@ -64,6 +77,7 @@ func setupConfig() {
 	if err != nil {             // Handle errors reading the config file
 		panic(fmt.Errorf("Fatal error config file: %s \n", err))
 	}
+
 }
 
 func forever() {

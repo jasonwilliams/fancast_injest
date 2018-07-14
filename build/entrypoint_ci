@@ -1,5 +1,6 @@
 #!/bin/bash
 sudo service postgresql start
+mkdir /var/log/fancast
 # sudo service nginx start
 # sudo -u fancast psql -f /usr/local/src/bitbucket.org/jayflux/mypodcasts_injest/build/indexes.sql
 # sudo -u fancast psql -c "ANALYZE"
