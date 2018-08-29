@@ -1,5 +1,6 @@
 // This script will check the database for original images and upload optimized ones
 let fs = require('fs');
+let crypto = require('crypto');
 
 let pg = require('pg');
 let config = require('config');
@@ -7,6 +8,7 @@ let winston = require('winston');
 let AWS = require('aws-sdk');
 let axios = require('axios');
 const imagemin = require('imagemin');
+const sharp = require('sharp');
 const imageminMozjpeg = require('imagemin-mozjpeg');
 const imageminPngquant = require('imagemin-pngquant');
 
@@ -89,19 +91,35 @@ class Podcast {
      * @returns {object} The Object {name, body} of the image
      */
     minifyImage(imageObj) {
+        // Get hash from URL and use this as our digest
+        const hash = crypto.createHash('sha256');
+        hash.update(imageObj.imageurl);
+        let digest = hash.digest("hex").substring(0, 20);
+
+        // First fetch the image
         axios({
             method: 'get',
             url: imageObj.imageurl,
             responseType: 'stream'
         }).then((response) => {
-            response.data.pipe(fs.createWriteStream('images/imagesToBeProcessed/test.jpg'))
+            return new Promise((resolve, reject) => {
+                const file = response.data.pipe(fs.createWriteStream(`images/imagesToBeProcessed/${digest}.jpg`));
+                file.on("finish", () => { resolve(); }); // not sure why you want to pass a boolean
+                file.on("error", reject);
+            })
         }).catch(err => {
             console.log(err)
         }).then(() => {
-            return imagemin(['./images/imagesToBeProcessed/*.{jpg,png}'], './images/imagesProcessed', {
+            // Resize the image
+            return sharp(`images/imagesToBeProcessed/${digest}.jpg`)
+                .resize(520)
+                .toFile(`images/resized/${digest}.jpg`)
+        }).then(() => {
+            // Compress the image
+            return imagemin(['./images/resized/*.{jpg,png}'], './images/imagesToBeProcessed', {
                 plugins: [
-                    // imageminMozjpeg({ quality: '50' }),
-                    // imageminPngquant({ speed: 1, quality: '50' })
+                    imageminMozjpeg({ quality: '90', progressive: true }),
+                    imageminPngquant({ speed: 1, quality: '65-80' })
                 ],
             });
         }).then((files) => {

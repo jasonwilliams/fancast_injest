@@ -7,6 +7,7 @@
     "imagemin-mozjpeg": "^7.0.0",
     "imagemin-pngquant": "^6.0.0",
     "pg": "^7.4.3",
+    "sharp": "^0.20.7",
     "winston": "3.0.0"
   }
 }
