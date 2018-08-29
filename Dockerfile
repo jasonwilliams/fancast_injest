@@ -14,6 +14,15 @@ ARG AUTH_KEY
 RUN useradd -c "Fancast account" -d /home/fancast -s /bin/bash fancast
 # # RUN mkdir -p /home/fancast/.ssh/ && touch /home/fancast/.ssh/authorized_keys && echo $AUTH_KEY > /home/fancast/.ssh/authorized_keys
 
+# Node
+RUN curl -sL https://deb.nodesource.com/setup_10.x | sudo -E bash -
+RUN apt-get install -y nodejs
+
+# Yarn
+RUN curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | sudo apt-key add -
+RUN echo "deb https://dl.yarnpkg.com/debian/ stable main" | sudo tee /etc/apt/sources.list.d/yarn.list
+RUN apt-get update && apt-get install yarn
+
 # Make fancast a sudoer
 RUN echo 'fancast ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers
 

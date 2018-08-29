@@ -2,3 +2,6 @@ vendor
 vendor.orig
 mypodcasts_injest
 envs
+error.log
+combined.log
+node_modules
