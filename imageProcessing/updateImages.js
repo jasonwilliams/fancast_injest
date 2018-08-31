@@ -91,10 +91,10 @@ class Podcast {
 
   entryInDB(id, digest, ext) {
     ext = ext.replace('.', ''); // don't bother with the .
-    let updateID = "update podcasts SET image = jsonb_set(image, '{id}', \'\"$1::text\"\') where id = $2;"
+    let updateID = "update podcasts SET image = jsonb_set(image, '{id}', to_jsonb($1::text)) where id = $2;"
     let updateIDValues = [digest, id];
 
-    let updateExt = "update podcasts SET image = jsonb_set(image, '{ext}', \"$1::text\") where id = $2;"
+    let updateExt = "update podcasts SET image = jsonb_set(image, '{ext}', to_jsonb($1::text)) where id = $2;"
     let updateExtValues = [ext, id];
     let promise = new Promise((resolve, reject) => {
       this.pool.query(updateID, updateIDValues)
