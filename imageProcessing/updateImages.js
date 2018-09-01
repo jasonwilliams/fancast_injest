@@ -84,9 +84,22 @@ class Podcast {
           let digest = await this.minifyImage(imgObj);
           this.uploadFiles(digest, ext);
           await this.entryInDB(imgObj.id, digest, ext);
+          this.removeFiles(digest, ext);
         }
       }
     )
+  }
+
+  removeFiles(digest, ext) {
+    fs.unlinkSync(`imageProcessing/imagesToBeProcessed/${digest}${ext}`);
+    fs.unlinkSync(`imageProcessing/resized/${digest}--320w${ext}`);
+    fs.unlinkSync(`imageProcessing/resized/${digest}--520w${ext}`);
+
+    fs.unlinkSync(`imageProcessing/processed/${digest}--520w${ext}`);
+    fs.unlinkSync(`imageProcessing/processed/${digest}--320w${ext}`);
+    fs.unlinkSync(`imageProcessing/processed/${digest}--520w.webp`);
+    fs.unlinkSync(`imageProcessing/processed/${digest}--320w.webp`);
+
   }
 
   entryInDB(id, digest, ext) {
