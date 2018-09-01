@@ -73,21 +73,29 @@ class Podcast {
   }
 
   createNewImages() {
-    this.pool.query(
-      "select image->'url' as imageUrl, id from podcasts where image->'optimisedUrl' IS NULL AND image->'url' IS NOT NULL",
-      async (err, res) => {
-        if (err) {
-          logger.error(err);
-        }
+    this.pool.query("select image->'url' as imageUrl, id from podcasts where image->'optimisedUrl' IS NULL AND image->'url' IS NOT NULL")
+      .then(async (res) => {
         for (let imgObj of res.rows) {
           let ext = path.extname(imgObj.imageurl);
-          let digest = await this.minifyImage(imgObj);
-          this.uploadFiles(digest, ext);
-          await this.entryInDB(imgObj.id, digest, ext);
-          this.removeFiles(digest, ext);
+          try {
+            let digest = await this.minifyImage(imgObj, ext);
+            this.uploadFiles(digest, ext);
+            await this.entryInDB(imgObj.id, digest, ext);
+            this.removeFiles(digest, ext);
+          } catch (e) {
+            logger.error(e);
+          }
         }
-      }
-    )
+        return true;
+      })
+      .then(() => {
+        this.pool.end();
+        // Nasty bug where pool.end() isn't ending execution
+        process.exit(0)
+      })
+      .catch(err => {
+        console.log(err);
+      })
   }
 
   removeFiles(digest, ext) {
@@ -109,24 +117,12 @@ class Podcast {
 
     let updateExt = "update podcasts SET image = jsonb_set(image, '{ext}', to_jsonb($1::text)) where id = $2;"
     let updateExtValues = [ext, id];
-    let promise = new Promise((resolve, reject) => {
-      this.pool.query(updateID, updateIDValues)
-        .then(() => {
-          return this.pool.query(updateExt, updateExtValues)
-        }, (err) => {
-          console.log(err);
-        })
-        .then(() => {
-          console.log(id);
-          resolve();
-        })
-        .catch((err) => {
-          console.log(err);
-          reject(err)
-        })
-    })
-
-    return promise;
+    return this.pool.query(updateID, updateIDValues)
+      .then(() => {
+        return this.pool.query(updateExt, updateExtValues)
+      }, (err) => {
+        console.log(err);
+      })
   }
 
   uploadFiles(digest, ext) {
@@ -172,11 +168,12 @@ class Podcast {
    * @param {object} The URL and name of the image to minify
    * @returns {object} The Object {name, body} of the image
    */
-  minifyImage(imageObj) {
+  minifyImage(imageObj, ext) {
     // Get hash from URL and use this as our digest
     const hash = crypto.createHash('sha256');
     hash.update(imageObj.imageurl);
     let digest = hash.digest("hex").substring(0, 20);
+    logger.info(`${imageObj.id} -- ${digest}`);
 
     // First fetch the image
     return axios({
@@ -185,22 +182,20 @@ class Podcast {
       responseType: 'stream'
     }).then((response) => {
       return new Promise((resolve, reject) => {
-        const file = response.data.pipe(fs.createWriteStream(`imageProcessing/imagesToBeProcessed/${digest}.jpg`));
+        const file = response.data.pipe(fs.createWriteStream(`imageProcessing/imagesToBeProcessed/${digest}${ext}`));
         file.on("finish", () => { resolve(); }); // not sure why you want to pass a boolean
         file.on("error", reject);
       })
-    }).catch(err => {
-      console.log(err)
     }).then(() => {
       // Resize the image
-      let w520 = sharp(`imageProcessing/imagesToBeProcessed/${digest}.jpg`)
+      let w520 = sharp(`imageProcessing/imagesToBeProcessed/${digest}${ext}`)
         .resize(520)
         .png() // This helps with image quality a lot
-        .toFile(`imageProcessing/resized/${digest}--520w.jpg`);
-      let w320 = sharp(`imageProcessing/imagesToBeProcessed/${digest}.jpg`)
+        .toFile(`imageProcessing/resized/${digest}--520w${ext}`);
+      let w320 = sharp(`imageProcessing/imagesToBeProcessed/${digest}${ext}`)
         .resize(320)
         .png() // This helps with image quality a lot
-        .toFile(`imageProcessing/resized/${digest}--320w.jpg`);
+        .toFile(`imageProcessing/resized/${digest}--320w${ext}`);
       return Promise.all([w520, w320]);
     }).then(() => {
       // Compress the image
@@ -218,8 +213,6 @@ class Podcast {
       });
     }).then(() => {
       return digest;
-    }).catch(err => {
-      console.log(err);
     })
   }
 }
