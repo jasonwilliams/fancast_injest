@@ -73,17 +73,18 @@ class Podcast {
   }
 
   createNewImages() {
-    this.pool.query("select image->'url' as imageUrl, id from podcasts where image->'optimisedUrl' IS NULL AND image->'url' IS NOT NULL")
+    this.pool.query("select image->'url' as imageUrl, id from podcasts where image->'ext' IS NULL AND image->'url' IS NOT NULL")
       .then(async (res) => {
         for (let imgObj of res.rows) {
-          let ext = path.extname(imgObj.imageurl);
+          // e.g b15166fcba82035fed04.png?v=63688781273 remove query strings
+          let ext = path.extname(imgObj.imageurl).replace(/\?.*$/, '');
           try {
             let digest = await this.minifyImage(imgObj, ext);
-            this.uploadFiles(digest, ext);
-            await this.entryInDB(imgObj.id, digest, ext);
+            this.uploadFiles(digest, '.png');
+            await this.entryInDB(imgObj.id, digest, '.png');
             this.removeFiles(digest, ext);
           } catch (e) {
-            logger.error(e);
+            logger.error(e.message);
           }
         }
         return true;
@@ -100,11 +101,11 @@ class Podcast {
 
   removeFiles(digest, ext) {
     fs.unlinkSync(`imageProcessing/imagesToBeProcessed/${digest}${ext}`);
-    fs.unlinkSync(`imageProcessing/resized/${digest}--320w${ext}`);
-    fs.unlinkSync(`imageProcessing/resized/${digest}--520w${ext}`);
+    fs.unlinkSync(`imageProcessing/resized/${digest}--320w.png`);
+    fs.unlinkSync(`imageProcessing/resized/${digest}--520w.png`);
 
-    fs.unlinkSync(`imageProcessing/processed/${digest}--520w${ext}`);
-    fs.unlinkSync(`imageProcessing/processed/${digest}--320w${ext}`);
+    fs.unlinkSync(`imageProcessing/processed/${digest}--520w.png`);
+    fs.unlinkSync(`imageProcessing/processed/${digest}--320w.png`);
     fs.unlinkSync(`imageProcessing/processed/${digest}--520w.webp`);
     fs.unlinkSync(`imageProcessing/processed/${digest}--320w.webp`);
 
@@ -174,7 +175,6 @@ class Podcast {
     hash.update(imageObj.imageurl);
     let digest = hash.digest("hex").substring(0, 20);
     logger.info(`${imageObj.id} -- ${digest}`);
-
     // First fetch the image
     return axios({
       method: 'get',
@@ -191,11 +191,11 @@ class Podcast {
       let w520 = sharp(`imageProcessing/imagesToBeProcessed/${digest}${ext}`)
         .resize(520)
         .png() // This helps with image quality a lot
-        .toFile(`imageProcessing/resized/${digest}--520w${ext}`);
+        .toFile(`imageProcessing/resized/${digest}--520w.png`);
       let w320 = sharp(`imageProcessing/imagesToBeProcessed/${digest}${ext}`)
         .resize(320)
         .png() // This helps with image quality a lot
-        .toFile(`imageProcessing/resized/${digest}--320w${ext}`);
+        .toFile(`imageProcessing/resized/${digest}--320w.png`);
       return Promise.all([w520, w320]);
     }).then(() => {
       // Compress the image
