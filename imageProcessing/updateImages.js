@@ -55,8 +55,16 @@ let s3 = new AWS.S3({
   secretAccessKey: spacesAccessKey
 });
 
+/**
+ * Class representing a podcast image to upload
+ * @class Podcast
+ */
 class Podcast {
   constructor() {
+    // Considering many network requests will be made for the same image, we should keep a mapping of images
+    // we've already found, to save bandwidth
+    this.checkedImages = new Map();
+
     this.pool = new pg.Pool({
       connectionString: connectionString
     })
@@ -72,20 +80,33 @@ class Podcast {
     });
   }
 
-  createNewImages() {
-    this.pool.query("select image->'url' as imageUrl, id from podcasts where image->'ext' IS NULL AND image->'url' IS NOT NULL")
+  /**s
+   * createNewImages -  Creates images by checking the DB for images which haven't been processsed
+   * @param {boolean} type true "podcast", false "podcast_episode"
+   */
+  createNewImages(type = true) {
+    this.table = (type) ? 'podcasts' : 'podcast_episodes';
+    this.pool.query(`select image->'url' as imageUrl, id from ${this.table} where image->'ext' IS NULL AND image->'url' IS NOT NULL`)
       .then(async (res) => {
         for (let imgObj of res.rows) {
+          logger.info(`processing ${imgObj.id}`);
           // e.g b15166fcba82035fed04.png?v=63688781273 remove query strings
-          let ext = path.extname(imgObj.imageurl).replace(/\?.*$/, '');
+          let ext = path.extname(imgObj.imageurl).replace(/\?.*$/, '') || '.png';
           try {
-            let digest = await this.minifyImage(imgObj, ext);
-            this.uploadFiles(digest, '.png');
+            let digest = this.createDigest(imgObj);
+            let exists = await this.existsOnBucket(digest);
+            // If image exists, we don't need to minify or upload
+            if (!exists) {
+              await this.minifyImage(imgObj, ext, digest);
+              this.uploadFiles(digest, '.png');
+              // this.removeFiles(digest, ext);
+            }
             await this.entryInDB(imgObj.id, digest, '.png');
-            this.removeFiles(digest, ext);
           } catch (e) {
             logger.error(e.message);
+            logger.error(e.stack);
           }
+          logger.info(`processed ${imgObj.id}`);
         }
         return true;
       })
@@ -99,69 +120,43 @@ class Podcast {
       })
   }
 
-  removeFiles(digest, ext) {
-    fs.unlinkSync(`imageProcessing/imagesToBeProcessed/${digest}${ext}`);
-    fs.unlinkSync(`imageProcessing/resized/${digest}--320w.png`);
-    fs.unlinkSync(`imageProcessing/resized/${digest}--520w.png`);
+  /**
+   * Check image exists using a digest
+   * @param {string} digest - Used to check if an image already exists in the bucket
+   * @returns {boolean} ifExists
+   */
+  existsOnBucket(digest) {
+    let promise = new Promise((resolve, reject) => {
+      // Search within checkedImages first!
+      if (this.checkedImages.has(digest)) {
+        resolve(this.checkedImages.get(digest));
+        return;
+      }
 
-    fs.unlinkSync(`imageProcessing/processed/${digest}--520w.png`);
-    fs.unlinkSync(`imageProcessing/processed/${digest}--320w.png`);
-    fs.unlinkSync(`imageProcessing/processed/${digest}--520w.webp`);
-    fs.unlinkSync(`imageProcessing/processed/${digest}--320w.webp`);
-
-  }
-
-  entryInDB(id, digest, ext) {
-    ext = ext.replace('.', ''); // don't bother with the .
-    let updateID = "update podcasts SET image = jsonb_set(image, '{id}', to_jsonb($1::text)) where id = $2;"
-    let updateIDValues = [digest, id];
-
-    let updateExt = "update podcasts SET image = jsonb_set(image, '{ext}', to_jsonb($1::text)) where id = $2;"
-    let updateExtValues = [ext, id];
-    return this.pool.query(updateID, updateIDValues)
-      .then(() => {
-        return this.pool.query(updateExt, updateExtValues)
-      }, (err) => {
-        console.log(err);
-      })
-  }
-
-  uploadFiles(digest, ext) {
-    [`${digest}--320w${ext}`, `${digest}--520w${ext}`, `${digest}--320w.webp`, `${digest}--520w.webp`].forEach(v => {
-      fs.readFile(`imageProcessing/processed/${v}`, function (err, data) {
+      s3.headObject({
+        Bucket: 'fancast',
+        Key: `podcast-images/${digest}.webp`,
+      }, (err, data) => {
         if (err) {
-          throw err;
-        }
-
-        let contentType;
-        let newExt = path.extname(v);
-        switch (newExt) {
-          case '.jpg':
-            contentType = 'image/jpeg';
-            break;
-          case '.png':
-            contentType = 'image/png';
-            break;
-          case '.webp':
-            contentType = 'image/webp';
-            break;
-        }
-
-
-        s3.putObject({
-          Bucket: 'fancast',
-          Key: `podcast-images/${v}`,
-          Body: data,
-          ACL: 'public-read',
-          CacheControl: 'public, max-age=31536000, immutable',
-          ContentType: contentType
-        }, function (err) {
-          if (err) {
-            console.log(err);
+          // a 404 is OK, this tell us the image does not exist
+          if (err.statusCode === 404) {
+            resolve(false);
+          } else {
+            reject(err);
+            logger.error(err);
           }
-        })
+          this.checkedImages.set(digest, false);
+        } else {
+          resolve(true)
+          logger.info('existsOnBucket resolved');
+          logger.info(data);
+          this.checkedImages.set(digest, true);
+        }
       })
-    })
+
+    });
+
+    return promise;
   }
 
   /**
@@ -169,12 +164,7 @@ class Podcast {
    * @param {object} The URL and name of the image to minify
    * @returns {object} The Object {name, body} of the image
    */
-  minifyImage(imageObj, ext) {
-    // Get hash from URL and use this as our digest
-    const hash = crypto.createHash('sha256');
-    hash.update(imageObj.imageurl);
-    let digest = hash.digest("hex").substring(0, 20);
-    logger.info(`${imageObj.id} -- ${digest}`);
+  minifyImage(imageObj, ext = '.png', digest) {
     // First fetch the image
     return axios({
       method: 'get',
@@ -182,16 +172,16 @@ class Podcast {
       responseType: 'stream'
     }).then((response) => {
       return new Promise((resolve, reject) => {
-        const file = response.data.pipe(fs.createWriteStream(`imageProcessing/imagesToBeProcessed/${digest}${ext}`));
-        file.on("finish", () => { resolve(); }); // not sure why you want to pass a boolean
+        const file = response.data.pipe(fs.createWriteStream(`./imageProcessing/imagesToBeProcessed/${digest}${ext}`));
+        file.on("finish", () => { resolve(); });
         file.on("error", reject);
       })
     }).then(() => {
       // Resize the image
-      let w520 = sharp(`imageProcessing/imagesToBeProcessed/${digest}${ext}`)
+      let w520 = sharp(`./imageProcessing/imagesToBeProcessed/${digest}${ext}`)
         .resize(520)
         .png() // This helps with image quality a lot
-        .toFile(`imageProcessing/resized/${digest}--520w.png`);
+        .toFile(`./imageProcessing/resized/${digest}--520w.png`);
       let w320 = sharp(`imageProcessing/imagesToBeProcessed/${digest}${ext}`)
         .resize(320)
         .png() // This helps with image quality a lot
@@ -211,11 +201,87 @@ class Podcast {
           imageminWebp({ quality: '80' })
         ],
       });
-    }).then(() => {
-      return digest;
+    })
+  }
+
+
+  /**
+   * @param {object} imageObj - The image to create a hash from
+   * @returns {string} The digest returned from hashing the image URL
+   */
+  createDigest(imageObj) {
+    // Get hash from URL and use this as our digest
+    const hash = crypto.createHash('sha256');
+    hash.update(imageObj.imageurl);
+    let digest = hash.digest("hex").substring(0, 20);
+    return digest;
+  }
+
+  removeFiles(digest, ext) {
+    fs.unlinkSync(`imageProcessing/imagesToBeProcessed/${digest}${ext}`);
+    fs.unlinkSync(`imageProcessing/resized/${digest}--320w.png`);
+    fs.unlinkSync(`imageProcessing/resized/${digest}--520w.png`);
+
+    fs.unlinkSync(`imageProcessing/processed/${digest}--520w.png`);
+    fs.unlinkSync(`imageProcessing/processed/${digest}--320w.png`);
+    fs.unlinkSync(`imageProcessing/processed/${digest}--520w.webp`);
+    fs.unlinkSync(`imageProcessing/processed/${digest}--320w.webp`);
+
+  }
+
+  entryInDB(id, digest, ext) {
+    ext = ext.replace('.', ''); // don't bother with the .
+    let updateID = `update ${this.table} SET image = jsonb_set(image, '{id}', to_jsonb($1::text)) where id = $2;`
+    let updateIDValues = [digest, id];
+
+    let updateExt = `update ${this.table} SET image = jsonb_set(image, '{ext}', to_jsonb($1::text)) where id = $2;`
+    let updateExtValues = [ext, id];
+    return this.pool.query(updateID, updateIDValues)
+      .then(() => {
+        return this.pool.query(updateExt, updateExtValues)
+      }, (err) => {
+        console.log(err);
+      })
+  }
+
+  uploadFiles(digest, ext) {
+    [`${digest}--320w${ext}`, `${digest}--520w${ext}`, `${digest}--320w.webp`, `${digest}--520w.webp`].forEach(v => {
+      let data = fs.readFileSync(`imageProcessing/processed/${v}`);
+
+      let contentType;
+      let newExt = path.extname(v);
+      switch (newExt) {
+        case '.jpg':
+          contentType = 'image/jpeg';
+          break;
+        case '.png':
+          contentType = 'image/png';
+          break;
+        case '.webp':
+          contentType = 'image/webp';
+          break;
+      }
+
+
+      s3.putObject({
+        Bucket: 'fancast',
+        Key: `podcast-images/${v}`,
+        Body: data,
+        ACL: 'public-read',
+        CacheControl: 'public, max-age=31536000, immutable',
+        ContentType: contentType
+      }, function (err) {
+        if (err) {
+          console.log(err);
+        }
+      })
     })
   }
 }
 
+
 let podcast = new Podcast()
-podcast.createNewImages();
+// podcast.createNewImages(true);
+
+// Do the same again for episodes
+podcast.createNewImages(false);
