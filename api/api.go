@@ -12,7 +12,7 @@ import (
 func API() {
 	router := mux.NewRouter()
 	router.HandleFunc("/test", Test).Methods("GET")
-	log.Fatal(http.ListenAndServe("0.0.0.0:8000", router))
+	log.Fatal(http.ListenAndServe("0.0.0.0:8060", router))
 }
 
 // Test is a testing function

@@ -16,6 +16,7 @@ services:
       - .:/usr/local/src/bitbucket.org/jayflux/mypodcasts_injest
     ports:
       - "5432:5432"
+      - "8060:8060"
     env_file: envs
     tty: true
 

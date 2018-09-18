@@ -1,13 +1,13 @@
-from ubuntu:17.10
+FROM ubuntu:17.10
 
 RUN apt-get update && apt-get upgrade -y && apt-get install wget curl vim sudo git -y
 RUN apt-get install nginx -y
 
 # Golang
 RUN apt-get install software-properties-common -y && \
-add-apt-repository ppa:gophers/archive -y && \
-apt-get update -y && \
-apt-get install golang-1.10-go -y
+    add-apt-repository ppa:gophers/archive -y && \
+    apt-get update -y && \
+    apt-get install golang-1.10-go -y
 # # Create the "fancast" user
 # # Give build access to this env, passed in via docker build
 ARG AUTH_KEY
@@ -52,10 +52,6 @@ COPY . /usr/local/src/bitbucket.org/jayflux/mypodcasts_injest
 # Change to the fancast user and its home folder and run the entry point script
 WORKDIR /usr/local/src/bitbucket.org/jayflux/mypodcasts_injest
 
-# Give build access to these envs, passed in via docker build
-ARG SPACES_KEY
-ARG SPACES_SECRET_KEY
-
 RUN /usr/lib/go-1.10/bin/go get -u github.com/golang/dep/cmd/dep
 RUN /usr/local/bin/dep ensure
 RUN /usr/lib/go-1.10/bin/go build
@@ -67,5 +63,6 @@ RUN service postgresql start && ./mypodcasts_injest -db update
 ENTRYPOINT /usr/local/src/bitbucket.org/jayflux/mypodcasts_injest/build/entrypoint_ci
 
 EXPOSE 80
+EXPOSE 8060
 EXPOSE 5432
 EXPOSE 22

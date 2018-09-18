@@ -7,6 +7,7 @@ import (
 	"os"
 	"time"
 
+	"bitbucket.org/jayflux/mypodcasts_injest/api"
 	"bitbucket.org/jayflux/mypodcasts_injest/injest"
 	"bitbucket.org/jayflux/mypodcasts_injest/injestFromBBC"
 	"github.com/spf13/viper"
@@ -14,8 +15,9 @@ import (
 )
 
 var build = flag.String("build", "", "Specify type of build")
-var DB = flag.String("db", "", "update or backup")
+var dbFlag = flag.String("db", "", "update or backup")
 var updater = flag.Bool("cron", false, "Initiate application")
+var apiFlag = flag.Bool("api", false, "Start API")
 
 func main() {
 	// Setup Config
@@ -45,7 +47,7 @@ func main() {
 		injestFromBBC.CrawlBBC()
 	}
 
-	switch *DB {
+	switch *dbFlag {
 	case "update":
 		updateDatabase()
 	case "backup":
@@ -61,6 +63,10 @@ func main() {
 		c.Start()
 		go forever()
 		select {}
+	}
+
+	if *apiFlag {
+		api.API()
 	}
 
 }
