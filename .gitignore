@@ -1,7 +1,9 @@
 vendor
 vendor.orig
+.vendor-new
 mypodcasts_injest
 envs
 error.log
 combined.log
 node_modules
+fancast.backup

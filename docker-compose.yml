@@ -3,9 +3,6 @@ services:
   db:
     build:
       context: .
-      args:
-        SPACES_KEY: ${SPACES_KEY}
-        SPACES_SECRET_KEY: ${SPACES_SECRET_KEY}
 
     container_name: fancast-api
     image: jayflux/fancast-api

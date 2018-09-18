@@ -1,5 +1,6 @@
-FROM ubuntu:17.10
+FROM ubuntu:18.04
 
+RUN ln -fs /usr/share/zoneinfo/Europe/London /etc/localtime
 RUN apt-get update && apt-get upgrade -y && apt-get install wget curl vim sudo git -y
 RUN apt-get install nginx -y
 
@@ -8,6 +9,7 @@ RUN apt-get install software-properties-common -y && \
     add-apt-repository ppa:gophers/archive -y && \
     apt-get update -y && \
     apt-get install golang-1.10-go -y
+
 # # Create the "fancast" user
 # # Give build access to this env, passed in via docker build
 ARG AUTH_KEY

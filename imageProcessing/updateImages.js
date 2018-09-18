@@ -99,14 +99,13 @@ class Podcast {
             if (!exists) {
               await this.minifyImage(imgObj, ext, digest);
               this.uploadFiles(digest, '.png');
-              // this.removeFiles(digest, ext);
+              this.removeFiles(digest, ext);
             }
             await this.entryInDB(imgObj.id, digest, '.png');
           } catch (e) {
             logger.error(e.message);
             logger.error(e.stack);
           }
-          logger.info(`processed ${imgObj.id}`);
         }
         return true;
       })
@@ -116,7 +115,7 @@ class Podcast {
         process.exit(0)
       })
       .catch(err => {
-        console.log(err);
+        console.log(err.stack);
       })
   }
 
@@ -272,7 +271,7 @@ class Podcast {
         ContentType: contentType
       }, function (err) {
         if (err) {
-          console.log(err);
+          console.log(err.stack);
         }
       })
     })
