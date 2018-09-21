@@ -54,6 +54,11 @@ COPY . /usr/local/src/bitbucket.org/jayflux/mypodcasts_injest
 # Change to the fancast user and its home folder and run the entry point script
 WORKDIR /usr/local/src/bitbucket.org/jayflux/mypodcasts_injest
 
+# Give build access to these envs, passed in via docker build
+# Do Not Remove - without these the database cannot update itself during build
+ARG SPACES_KEY
+ARG SPACES_SECRET_KEY
+
 RUN /usr/lib/go-1.10/bin/go get -u github.com/golang/dep/cmd/dep
 RUN /usr/local/bin/dep ensure
 RUN /usr/lib/go-1.10/bin/go build
