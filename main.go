@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"bitbucket.org/jayflux/mypodcasts_injest/api"
+	"bitbucket.org/jayflux/mypodcasts_injest/models"
+
 	"bitbucket.org/jayflux/mypodcasts_injest/injest"
 	"bitbucket.org/jayflux/mypodcasts_injest/injestFromBBC"
 	"github.com/spf13/viper"
@@ -66,6 +68,7 @@ func main() {
 	}
 
 	if *apiFlag {
+		models.InitDB()
 		api.API()
 	}
 

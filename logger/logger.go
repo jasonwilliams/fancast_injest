@@ -19,4 +19,8 @@ func init() {
 
 	Log = log.New(f, "", log.LstdFlags|log.Lshortfile)
 	Log.Println("LogFile : " + logpath)
+	if os.Getenv("NODE_ENV") == "development" {
+		Log.SetOutput(os.Stderr)
+		Log.SetOutput(os.Stdout)
+	}
 }
