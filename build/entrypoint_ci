@@ -3,6 +3,6 @@ sudo service postgresql start
 # sudo service nginx start
 # sudo -u fancast psql -f /usr/local/src/bitbucket.org/jayflux/mypodcasts_injest/build/indexes.sql
 # sudo -u fancast psql -c "ANALYZE"
-./mypodcasts_injest -cron=true &
+# ./mypodcasts_injest -cron=true &
 ./mypodcasts_injest -api &
 /bin/bash
