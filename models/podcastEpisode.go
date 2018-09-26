@@ -28,7 +28,7 @@ func GetPodcastEpisode(id string) PodcastEpisode {
 // Example datetime from database - 2018-08-24T11:00:00Z
 func GetPodcastEpisodes(id string, datetime time.Time) []PodcastEpisode {
 	var podcastEpisodes []PodcastEpisode
-	rows, err := db.Query("SELECT id, title, description, image, published_parsed FROM podcast_episodes where parent = $1 AND published_parsed > $2", id, datetime)
+	rows, err := db.Query("SELECT id, title, description, image, published_parsed FROM podcast_episodes where parent = $1 AND published_parsed > $2 LIMIT 20", id, datetime)
 	if err != nil {
 		logger.Log.Println(err)
 	}
