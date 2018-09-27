@@ -69,7 +69,5 @@ RUN service postgresql start && ./mypodcasts_injest -db update
 
 ENTRYPOINT /usr/local/src/bitbucket.org/jayflux/mypodcasts_injest/build/entrypoint_ci
 
-EXPOSE 80
 EXPOSE 8060
 EXPOSE 5432
-EXPOSE 22
