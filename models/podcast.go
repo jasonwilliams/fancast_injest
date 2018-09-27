@@ -29,13 +29,6 @@ func GetPodcast(id string) Podcast {
 	return podcast
 }
 
-// GetImage gets the podcast image for this current Podcast struct
-func (p Podcast) GetImage() (PodcastImage, error) {
-	var podcastImage PodcastImage
-	error := json.Unmarshal(p.Image, podcastImage)
-	return podcastImage, error
-}
-
 // GetEpisodes fetches the first 20 episodes related to this podcast
 func (p Podcast) GetEpisodes() []PodcastEpisode {
 	// First lets get a date from the past

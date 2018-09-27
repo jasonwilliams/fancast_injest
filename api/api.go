@@ -18,7 +18,7 @@ func API() {
 	router := mux.NewRouter()
 	router.HandleFunc("/test", Test).Methods("GET")
 	router.HandleFunc("/podcasts/{podcast}", podcastHandler)
-	router.HandleFunc("/podcasts/e/{podcast}", podcastEpisodeHandler)
+	router.HandleFunc("/episodes/{podcast}", podcastEpisodeHandler)
 	router.HandleFunc("/podcasts/{podcast}/episodes", podcastEpisodesHandler)
 	log.Fatal(http.ListenAndServe("0.0.0.0:8060", router))
 }
