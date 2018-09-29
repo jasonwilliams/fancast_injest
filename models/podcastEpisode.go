@@ -24,6 +24,8 @@ type PodcastEpisode struct {
 	ParentID        string          `db:"parentID" json:"parentID"`
 	ParentTitle     string          `db:"parentTitle" json:"parentTitle"`
 	Enclosures      json.RawMessage `db:"enclosures" json:"enclosures"`
+	ItunesExt       json.RawMessage `db:"itunes_ext" json:"itunes_ext"`
+	Length          string          `json:"length"`
 }
 
 // GetPodcastEpisode returns a Podcast struct
@@ -41,18 +43,19 @@ func GetPodcastEpisode(id string) PodcastEpisode {
 // Example datetime from database - 2018-08-24T11:00:00Z
 func GetPodcastEpisodes(id string, datetime time.Time) []PodcastEpisode {
 	var podcastEpisodes []PodcastEpisode
-	rows, err := db.Query("SELECT podcast_episodes.id, podcast_episodes.title, podcast_episodes.description, COALESCE(NULLIF(podcast_episodes.image, 'null'::jsonb), podcasts.image) AS image, podcast_episodes.published_parsed, podcast_episodes.published, podcast_episodes.enclosures FROM podcast_episodes INNER JOIN podcasts ON (podcast_episodes.parent = podcasts.id) where podcast_episodes.parent = $1 AND published_parsed > $2 LIMIT 20", id, datetime)
+	rows, err := db.Query("SELECT podcast_episodes.id, podcast_episodes.title, podcast_episodes.description, COALESCE(NULLIF(podcast_episodes.image, 'null'::jsonb), podcasts.image) AS image, podcast_episodes.published_parsed, podcast_episodes.published, podcast_episodes.enclosures, podcast_episodes.itunes_ext FROM podcast_episodes INNER JOIN podcasts ON (podcast_episodes.parent = podcasts.id) where podcast_episodes.parent = $1 AND published_parsed > $2 LIMIT 20", id, datetime)
 	if err != nil {
 		logger.Log.Println(err)
 	}
 	defer rows.Close()
 	for rows.Next() {
 		var podcastEpisode PodcastEpisode
-		if err := rows.Scan(&podcastEpisode.ID, &podcastEpisode.Title, &podcastEpisode.Description, &podcastEpisode.Image, &podcastEpisode.PublishedParsed, &podcastEpisode.Published, &podcastEpisode.Enclosures); err != nil {
+		if err := rows.Scan(&podcastEpisode.ID, &podcastEpisode.Title, &podcastEpisode.Description, &podcastEpisode.Image, &podcastEpisode.PublishedParsed, &podcastEpisode.Published, &podcastEpisode.Enclosures, &podcastEpisode.ItunesExt); err != nil {
 			logger.Log.Fatal(err)
 		}
 		// Set the proper formatting for published
 		podcastEpisode.formatPublished()
+		podcastEpisode.getLength()
 		podcastEpisodes = append(podcastEpisodes, podcastEpisode)
 	}
 
@@ -65,4 +68,14 @@ func (p *PodcastEpisode) formatPublished() {
 		logger.Log.Println(err)
 	}
 	p.Published = timeStr.Format(episodePublishedOutputFormat)
+}
+
+func (p *PodcastEpisode) getLength() {
+	var itunes PodcastItunesExt
+	err := json.Unmarshal(p.ItunesExt, &itunes)
+	if err != nil {
+		logger.Log.Println(err)
+	}
+
+	p.Length = itunes.Duration
 }

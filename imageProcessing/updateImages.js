@@ -98,7 +98,7 @@ class Podcast {
             // If image exists, we don't need to minify or upload
             if (!exists) {
               await this.minifyImage(imgObj, ext, digest);
-              this.uploadFiles(digest, '.png');
+              await this.uploadFiles(digest, '.png');
               this.removeFiles(digest, ext);
             }
             await this.entryInDB(imgObj.id, digest, '.png');
@@ -244,37 +244,43 @@ class Podcast {
   }
 
   uploadFiles(digest, ext) {
-    [`${digest}--320w${ext}`, `${digest}--520w${ext}`, `${digest}--320w.webp`, `${digest}--520w.webp`].forEach(v => {
-      let data = fs.readFileSync(`imageProcessing/processed/${v}`);
+    let promises = [`${digest}--320w${ext}`, `${digest}--520w${ext}`, `${digest}--320w.webp`, `${digest}--520w.webp`].map(v => {
+      return new Promise((resolve, reject) => {
+        let data = fs.readFileSync(`imageProcessing/processed/${v}`);
 
-      let contentType;
-      let newExt = path.extname(v);
-      switch (newExt) {
-        case '.jpg':
-          contentType = 'image/jpeg';
-          break;
-        case '.png':
-          contentType = 'image/png';
-          break;
-        case '.webp':
-          contentType = 'image/webp';
-          break;
-      }
-
-
-      s3.putObject({
-        Bucket: 'fancast',
-        Key: `podcast-images/${v}`,
-        Body: data,
-        ACL: 'public-read',
-        CacheControl: 'public, max-age=31536000, immutable',
-        ContentType: contentType
-      }, function (err) {
-        if (err) {
-          console.log(err.stack);
+        let contentType;
+        let newExt = path.extname(v);
+        switch (newExt) {
+          case '.jpg':
+            contentType = 'image/jpeg';
+            break;
+          case '.png':
+            contentType = 'image/png';
+            break;
+          case '.webp':
+            contentType = 'image/webp';
+            break;
         }
-      })
-    })
+
+
+        s3.putObject({
+          Bucket: 'fancast',
+          Key: `podcast-images/${v}`,
+          Body: data,
+          ACL: 'public-read',
+          CacheControl: 'public, max-age=31536000, immutable',
+          ContentType: contentType
+        }, function (err) {
+          if (err) {
+            console.log(err.stack);
+            reject(err);
+          }
+          resolve();
+        });
+      });
+    });
+
+    return Promise.all(promises);
   }
 }
 
