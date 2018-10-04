@@ -47,6 +47,9 @@ func main() {
 		<-status
 	case "bbc":
 		injestFromBBC.CrawlBBC()
+
+	case "update":
+		injest.UpdateNewPodcasts()
 	}
 
 	switch *dbFlag {
@@ -60,7 +63,7 @@ func main() {
 	if *updater {
 		// https://godoc.org/gopkg.in/robfig/cron.v2
 		c := cron.New()
-		c.AddFunc("@hourly", func() { performBackup() })
+		c.AddFunc("@hourly", func() { injest.UpdatePodcasts() })
 		c.AddFunc("@weekly", func() { injestFromBBC.CrawlBBC() })
 		c.Start()
 		go forever()

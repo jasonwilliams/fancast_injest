@@ -1,11 +1,9 @@
 package injest
 
 import (
-	"crypto/sha256"
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"log"
 	"strings"
 	"time"
 
@@ -140,7 +138,7 @@ func prepareEpisodeForDB(episode *gofeed.Item) map[string][]byte {
 
 	// generate timestamp
 	t := time.Now()
-	m["last_processed"] = []byte(t.Format(time.RFC3339))
+	m["last_fetch"] = []byte(t.Format(time.RFC3339))
 
 	return m
 }
@@ -155,8 +153,8 @@ func addEpisodeInDatabase(episode *gofeed.Item, parent string) {
 		log.Fatal("Couldn't begin database transaction")
 	}
 
-	_, writeErr := tx.Exec("INSERT INTO podcast_episodes (id, guid, title, description, published, published_parsed, author, image, enclosures, digest, itunes_ext, last_processed, parent) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13);",
-		id, episode.GUID, episode.Title, episode.Description, episode.Published, episode.PublishedParsed, m["author"], m["image"], m["enclosures"], m["digest"], m["itunesExt"], m["last_processed"], parent)
+	_, writeErr := tx.Exec("INSERT INTO podcast_episodes (id, guid, title, description, published, published_parsed, author, image, enclosures, digest, itunes_ext, last_fetch, parent) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13);",
+		id, episode.GUID, episode.Title, episode.Description, episode.Published, episode.PublishedParsed, m["author"], m["image"], m["enclosures"], m["digest"], m["itunesExt"], m["last_fetch"], parent)
 	if writeErr != nil {
 		log.Printf("Could not write episode (GUID: %s) to DB\n", episode.GUID)
 		log.Println(writeErr)
@@ -177,8 +175,8 @@ func updateEpisodeInDatabase(episode *gofeed.Item, parent string) {
 	if err != nil {
 		log.Fatal("updateEpisodeInDatabase: Couldn't begin database transaction")
 	}
-	_, writeErr := tx.Exec("UPDATE podcast_episodes SET (guid, title, description, published, published_parsed, author, image, enclosures, digest, itunes_ext, last_processed, parent) = ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) WHERE guid = $1;",
-		episode.GUID, episode.Title, episode.Description, episode.Published, episode.PublishedParsed, m["author"], m["image"], m["enclosures"], m["digest"], m["itunesExt"], m["last_processed"], parent)
+	_, writeErr := tx.Exec("UPDATE podcast_episodes SET (guid, title, description, published, published_parsed, author, image, enclosures, digest, itunes_ext, last_fetch, parent) = ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) WHERE guid = $1;",
+		episode.GUID, episode.Title, episode.Description, episode.Published, episode.PublishedParsed, m["author"], m["image"], m["enclosures"], m["digest"], m["itunesExt"], m["last_fetch"], parent)
 
 	if writeErr != nil {
 		log.Printf("updateEpisodeInDatabase: Could not write episode (GUID: %s) to DB\n", episode.GUID)
@@ -212,13 +210,13 @@ func episodeGuidExists(episode *gofeed.Item) bool {
 }
 
 func generateDigestFromEpisode(episode *gofeed.Item) string {
-	hash := sha256.Sum256(structhash.Dump(episode, 1))
-	return string(hash[:])
+	hash, _ := structhash.Hash(episode, 1)
+	return hash
 }
 
 func generateDigestFromPodcast(feed *gofeed.Feed) string {
-	hash := sha256.Sum256(structhash.Dump(feed, 1))
-	return string(hash[:])
+	hash, _ := structhash.Hash(feed, 1)
+	return hash
 }
 
 // digestExists is mainly used by podcast episode objects
@@ -227,7 +225,6 @@ func digestExists(episode *gofeed.Item) bool {
 
 	// lets start by hashing the episode object and see if we have something similar in the DB
 	hash := generateDigestFromEpisode(episode)
-	fmt.Println(hash)
 	// we don't actually use title here, but it Scan returns an error object which we want
 	var title string
 	var isRows bool
@@ -276,7 +273,7 @@ func preparePodcastForDB(feed *gofeed.Feed) map[string][]byte {
 	// generate timestamp
 	t := time.Now()
 	lastProcessed := t.Format(time.RFC3339)
-	m["last_processed"] = []byte(lastProcessed)
+	m["last_fetch"] = []byte(lastProcessed)
 
 	// generate last change, if hashes are different, date should be now()
 	// if hashes are the same, date will match what's already in the DB
@@ -333,7 +330,7 @@ func updatePollFrequency(url string) int8 {
 	}
 }
 
-// This function works out the last time this podcasts had changed (different to last_processed which records last fetch)
+// This function works out the last time this podcasts had changed (different to last_fetch which records last fetch)
 // Then returns a time
 // If there is a digest, check if its the same, if so continue to use same last_change date
 // If no digest is set, last_change should be now
@@ -344,7 +341,12 @@ func getLastChanged(hash, url string) string {
 	)
 	err := db.QueryRow("SELECT digest, last_change FROM podcasts WHERE feed_url = $1;", url).Scan(&digest, &change)
 	if err != nil {
-		log.Println(err)
+		if err != sql.ErrNoRows {
+			log.Println(err)
+		}
+
+		// This is a new podcast, there is no data, just generate current time
+		return time.Now().Format(time.RFC3339)
 	}
 
 	// If there's no digest, just send the current time
@@ -377,11 +379,14 @@ func updatePodcastMetadata(feed *gofeed.Feed, url string) {
 		log.Fatal(err)
 	}
 
-	_, writeErr := tx.Exec("UPDATE podcasts SET (title, description, link, updated, updated_parsed, author, language, image, itunes_ext, categories, copyright, last_processed, feed_url, digest, poll_frequency) = ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15) WHERE feed_url = $13;",
-		feed.Title, feed.Description, feed.Link, feed.Updated, feed.UpdatedParsed, m["author"], feed.Language, m["image"], m["ItunesExt"], m["categories"], feed.Copyright, m["last_processed"], url, string(m["digest"]), freq)
+	query := `
+	UPDATE podcasts SET (last_fetch, title, description, link, updated, updated_parsed, author, language, image, itunes_ext, categories, copyright, poll_frequency, last_change, digest) =
+	($2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16) where feed_url = $1;
+	`
+	_, writeErr := tx.Exec(query, url, m["last_fetch"], feed.Title, feed.Description, feed.Link, feed.Updated, feed.UpdatedParsed, m["author"], feed.Language, m["image"], m["ItunesExt"], m["categories"], feed.Copyright, freq, m["last_change"], m["digest"])
 	if writeErr != nil {
 		log.Println("updatePodcastMetadata: Could not write to DB")
-		log.Fatal(writeErr)
+		log.Println(writeErr)
 	}
 	commitErr := tx.Commit()
 	if commitErr != nil {
@@ -400,8 +405,13 @@ func createNewPodcast(feed *gofeed.Feed, url string) string {
 		log.Println("createNewPodcast: Couldn't begin database transaction")
 		log.Fatal(err)
 	}
-	_, writeErr := tx.Exec("INSERT INTO podcasts(id, title, description, link, updated, updated_parsed, author, language, image, itunes_ext, categories, copyright, last_processed, feed_url, digest, poll_frequency) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16);",
-		id, feed.Title, feed.Description, feed.Link, feed.Updated, feed.UpdatedParsed, m["author"], feed.Language, m["image"], m["ItunesExt"], m["categories"], feed.Copyright, m["last_processed"], url, m["digest"], 8)
+	// _, writeErr := tx.Exec("INSERT INTO podcasts(id, title, description, link, updated, updated_parsed, author, language, image, itunes_ext, categories, copyright, last_fetch, feed_url, digest, poll_frequency) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16);",
+	// id, feed.Title, feed.Description, feed.Link, feed.Updated, feed.UpdatedParsed, m["author"], feed.Language, m["image"], m["ItunesExt"], m["categories"], feed.Copyright, m["last_fetch"], url, m["digest"], 8)
+	query := `
+	INSERT INTO podcasts (id, last_fetch, title, description, link, updated, updated_parsed, author, language, image, itunes_ext, categories, copyright, poll_frequency, last_change, digest, feed_url) VALUES
+	($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17);
+	`
+	res, writeErr := tx.Exec(query, id, m["last_fetch"], feed.Title, feed.Description, feed.Link, feed.Updated, feed.UpdatedParsed, m["author"], feed.Language, m["image"], m["ItunesExt"], m["categories"], feed.Copyright, 8, m["last_change"], m["digest"], url)
 	if writeErr != nil {
 		log.Println("Could not write to DB")
 		log.Println(writeErr)
@@ -419,6 +429,9 @@ func createNewPodcast(feed *gofeed.Feed, url string) string {
 			log.Fatal(commitErr)
 		}
 	}
+
+	r, _ := res.RowsAffected()
+	log.Println(r)
 
 	return id
 }

@@ -5,4 +5,5 @@ sudo service postgresql start
 # sudo -u fancast psql -c "ANALYZE"
 # ./mypodcasts_injest -cron=true &
 ./mypodcasts_injest -api &
+./mypodcasts_injest -cron &
 /bin/bash

@@ -14,7 +14,7 @@ CREATE TABLE podcasts (
     categories jsonb,
     feed_url text,
     copyright text,
-    last_processed timestamp,
+    last_fetch timestamp,
   active boolean
 );
 
@@ -35,7 +35,7 @@ CREATE TABLE podcast_episodes (
     enclosures jsonb,
     digest text UNIQUE,
     itunes_ext jsonb,
-    last_processed timestamp,
+    last_fetch timestamp,
     parent uuid not null,
   active boolean
 );
