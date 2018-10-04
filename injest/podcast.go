@@ -1,6 +1,7 @@
 package injest
 
 import (
+	"crypto/sha256"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -134,11 +135,8 @@ func prepareEpisodeForDB(episode *gofeed.Item) map[string][]byte {
 	}
 
 	// Generate hash
-	hash, err := generateDigestFromEpisode(episode)
+	hash := generateDigestFromEpisode(episode)
 	m["digest"] = []byte(hash)
-	if err != nil {
-		log.Fatal(err)
-	}
 
 	// generate timestamp
 	t := time.Now()
@@ -213,10 +211,14 @@ func episodeGuidExists(episode *gofeed.Item) bool {
 	return false
 }
 
-// TODO: change to sha256
-func generateDigestFromEpisode(episode *gofeed.Item) (string, error) {
-	hash, hashErr := structhash.Hash(episode, 1)
-	return hash, hashErr
+func generateDigestFromEpisode(episode *gofeed.Item) string {
+	hash := sha256.Sum256(structhash.Dump(episode, 1))
+	return string(hash[:])
+}
+
+func generateDigestFromPodcast(feed *gofeed.Feed) string {
+	hash := sha256.Sum256(structhash.Dump(feed, 1))
+	return string(hash[:])
 }
 
 // digestExists is mainly used by podcast episode objects
@@ -224,11 +226,8 @@ func generateDigestFromEpisode(episode *gofeed.Item) (string, error) {
 func digestExists(episode *gofeed.Item) bool {
 
 	// lets start by hashing the episode object and see if we have something similar in the DB
-	hash, hashErr := generateDigestFromEpisode(episode)
-	if hashErr != nil {
-		log.Println("Failed to hash episode guid: %s ", episode.GUID)
-		log.Fatal(hashErr)
-	}
+	hash := generateDigestFromEpisode(episode)
+	fmt.Println(hash)
 	// we don't actually use title here, but it Scan returns an error object which we want
 	var title string
 	var isRows bool
@@ -269,25 +268,117 @@ func preparePodcastForDB(feed *gofeed.Feed) map[string][]byte {
 	if err != nil {
 		log.Println(err)
 	}
+
+	// Generate hash
+	hash := generateDigestFromPodcast(feed)
+	m["digest"] = []byte(hash)
+
 	// generate timestamp
 	t := time.Now()
-	last_processed := t.Format(time.RFC3339)
-	m["last_processed"] = []byte(last_processed)
+	lastProcessed := t.Format(time.RFC3339)
+	m["last_processed"] = []byte(lastProcessed)
+
+	// generate last change, if hashes are different, date should be now()
+	// if hashes are the same, date will match what's already in the DB
+	m["last_change"] = []byte(getLastChanged(hash, url))
 
 	return m
+}
+
+// Update POLL Frequency
+/**
+	POLL Frequency - No point polling old podcasts if they're inactive, here's a table
+	> 730 hours (1 month) -- 48 hours
+	> 168 -- 24 hours
+	> 48 -- 16 hours
+	> 24 -- 8 hours
+	default -- 4 hours
+**/
+func updatePollFrequency(url string) int8 {
+	var (
+		lastChange sql.NullString
+	)
+
+	err := db.QueryRow("SELECT last_change FROM podcasts WHERE feed_url = $1;", url).Scan(&lastChange)
+	if err != nil {
+		log.Println(err)
+	}
+	// Setup time for comparison
+	t := time.Now()
+
+	// no last change date, set default time
+	if !lastChange.Valid {
+		return 4
+	}
+
+	// Parse lastChange into time
+	lastChangeTime, err := time.Parse(time.RFC3339, lastChange.String)
+	if err != nil {
+		log.Println(err)
+	}
+
+	// get the difference from now to lastChange
+	diff := t.Sub(lastChangeTime)
+
+	if diff > 730 {
+		return 48
+	} else if diff > 168 {
+		return 24
+	} else if diff > 48 {
+		return 16
+	} else if diff > 24 {
+		return 8
+	} else {
+		return 4
+	}
+}
+
+// This function works out the last time this podcasts had changed (different to last_processed which records last fetch)
+// Then returns a time
+// If there is a digest, check if its the same, if so continue to use same last_change date
+// If no digest is set, last_change should be now
+func getLastChanged(hash, url string) string {
+	var (
+		digest sql.NullString
+		change sql.NullString
+	)
+	err := db.QueryRow("SELECT digest, last_change FROM podcasts WHERE feed_url = $1;", url).Scan(&digest, &change)
+	if err != nil {
+		log.Println(err)
+	}
+
+	// If there's no digest, just send the current time
+	if !digest.Valid {
+		return time.Now().Format(time.RFC3339)
+	}
+
+	// If there's no last_change send back current time
+	if !change.Valid {
+		return time.Now().Format(time.RFC3339)
+	}
+
+	// if these match, there has been no change
+	if hash == digest.String {
+		return change.String
+	}
+
+	// If we reach here, then we have a hash and a last_change, but there's been a change
+	// Replace last_change with new date
+	return time.Now().Format(time.RFC3339)
 }
 
 func updatePodcastMetadata(feed *gofeed.Feed, url string) {
 	// For all the JSON properties, create a new mapping
 	m := preparePodcastForDB(feed)
+	freq := updatePollFrequency(url)
 	tx, err := db.Begin()
 	if err != nil {
 		log.Println("updatePodcastMetadata: Couldn't begin database transaction")
 		log.Fatal(err)
 	}
 
-	_, writeErr := tx.Exec("UPDATE podcasts SET (title, description, link, updated, updated_parsed, author, language, image, itunes_ext, categories, copyright, last_processed, feed_url) = ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) WHERE feed_url = $13;",
-		feed.Title, feed.Description, feed.Link, feed.Updated, feed.UpdatedParsed, m["author"], feed.Language, m["image"], m["ItunesExt"], m["categories"], feed.Copyright, m["last_processed"], url)
+	_, writeErr := tx.Exec("UPDATE podcasts SET (title, description, link, updated, updated_parsed, author, language, image, itunes_ext, categories, copyright, last_processed, feed_url, digest, poll_frequency) = ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15) WHERE feed_url = $13;",
+		feed.Title, feed.Description, feed.Link, feed.Updated, feed.UpdatedParsed, m["author"], feed.Language, m["image"], m["ItunesExt"], m["categories"], feed.Copyright, m["last_processed"], url, string(m["digest"]), freq)
 	if writeErr != nil {
 		log.Println("updatePodcastMetadata: Could not write to DB")
 		log.Fatal(writeErr)
@@ -297,7 +388,6 @@ func updatePodcastMetadata(feed *gofeed.Feed, url string) {
 		log.Println("Commit failed")
 		log.Fatal(commitErr)
 	}
-
 }
 
 func createNewPodcast(feed *gofeed.Feed, url string) string {
@@ -310,8 +400,8 @@ func createNewPodcast(feed *gofeed.Feed, url string) string {
 		log.Println("createNewPodcast: Couldn't begin database transaction")
 		log.Fatal(err)
 	}
-	_, writeErr := tx.Exec("INSERT INTO podcasts(id, title, description, link, updated, updated_parsed, author, language, image, itunes_ext, categories, copyright, last_processed, feed_url) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14);",
-		id, feed.Title, feed.Description, feed.Link, feed.Updated, feed.UpdatedParsed, m["author"], feed.Language, m["image"], m["ItunesExt"], m["categories"], feed.Copyright, m["last_processed"], url)
+	_, writeErr := tx.Exec("INSERT INTO podcasts(id, title, description, link, updated, updated_parsed, author, language, image, itunes_ext, categories, copyright, last_processed, feed_url, digest, poll_frequency) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16);",
+		id, feed.Title, feed.Description, feed.Link, feed.Updated, feed.UpdatedParsed, m["author"], feed.Language, m["image"], m["ItunesExt"], m["categories"], feed.Copyright, m["last_processed"], url, m["digest"], 8)
 	if writeErr != nil {
 		log.Println("Could not write to DB")
 		log.Println(writeErr)
@@ -370,16 +460,16 @@ func generateIDForPodcast(guid string) string {
 		id := generateNewID()
 
 		return id
-	} else {
-		return generateNewID()
 	}
+	return generateNewID()
+
 }
 
 func generateNewID() string {
 	return uuid.NewV4().String()
 }
 
-// Check if a UUID is valid
+// IsValidUUID checks if a UUID is valid
 func IsValidUUID(uuid string) bool {
 	return UUIDRegex.MatchString(uuid)
 }

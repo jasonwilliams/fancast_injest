@@ -4,6 +4,7 @@ import (
 	"log"
 	"regexp"
 
+	// Prelude for sql package
 	_ "github.com/lib/pq"
 	"github.com/mmcdole/gofeed"
 )
