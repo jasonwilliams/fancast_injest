@@ -43,7 +43,7 @@ func GetPodcastEpisode(id string) PodcastEpisode {
 // Example datetime from database - 2018-08-24T11:00:00Z
 func GetPodcastEpisodes(id string, datetime time.Time) []PodcastEpisode {
 	var podcastEpisodes []PodcastEpisode
-	rows, err := db.Query("SELECT podcast_episodes.id, podcast_episodes.title, podcast_episodes.description, COALESCE(NULLIF(podcast_episodes.image, 'null'::jsonb), podcasts.image) AS image, podcast_episodes.published_parsed, podcast_episodes.published, podcast_episodes.enclosures, podcast_episodes.itunes_ext FROM podcast_episodes INNER JOIN podcasts ON (podcast_episodes.parent = podcasts.id) where podcast_episodes.parent = $1 AND published_parsed > $2 ORDER BY published_parsed LIMIT 20", id, datetime)
+	rows, err := db.Query("SELECT podcast_episodes.id, podcast_episodes.title, podcast_episodes.description, COALESCE(NULLIF(podcast_episodes.image, 'null'::jsonb), podcasts.image) AS image, podcast_episodes.published_parsed, podcast_episodes.published, podcast_episodes.enclosures, podcast_episodes.itunes_ext FROM podcast_episodes INNER JOIN podcasts ON (podcast_episodes.parent = podcasts.id) where podcast_episodes.parent = $1 AND published_parsed > $2 ORDER BY published_parsed DESC LIMIT 20", id, datetime)
 	if err != nil {
 		logger.Log.Println(err)
 	}
