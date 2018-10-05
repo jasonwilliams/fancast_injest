@@ -86,7 +86,7 @@ class Podcast {
    */
   createNewImages(type = true) {
     this.table = (type) ? 'podcasts' : 'podcast_episodes';
-    this.pool.query(`select image->'url' as imageUrl, id from ${this.table} where image->'ext' IS NULL AND image->'url' IS NOT NULL`)
+    return this.pool.query(`select image->'url' as imageUrl, id from ${this.table} where image->'ext' IS NULL AND image->'url' IS NOT NULL`)
       .then(async (res) => {
         for (let imgObj of res.rows) {
           logger.info(`processing ${imgObj.id}`);
@@ -104,18 +104,12 @@ class Podcast {
             await this.entryInDB(imgObj.id, digest, '.png');
           } catch (e) {
             logger.error(e.message);
-            logger.error(e.stack);
           }
         }
         return true;
       })
-      .then(() => {
-        this.pool.end();
-        // Nasty bug where pool.end() isn't ending execution
-        process.exit(0)
-      })
       .catch(err => {
-        console.log(err.stack);
+        console.log(err);
       })
   }
 
@@ -191,13 +185,13 @@ class Podcast {
       return imagemin([`./imageProcessing/resized/*${digest}*.{jpg,png}`], './imageProcessing/processed', {
         plugins: [
           imageminMozjpeg({ quality: '90', progressive: true }),
-          imageminPngquant({ speed: 1, quality: '65-80' })
+          imageminPngquant({ speed: 1 })
         ],
       });
     }).then(() => {
       return imagemin([`./imageProcessing/resized/*${digest}*.{jpg,png}`], './imageProcessing/processed', {
         plugins: [
-          imageminWebp({ quality: '80' })
+          imageminWebp()
         ],
       });
     })
@@ -284,9 +278,15 @@ class Podcast {
   }
 }
 
+async function main() {
+  let podcast = new Podcast();
+  await podcast.createNewImages(true);
+  console.log('------ Episodes ------');
 
-let podcast = new Podcast()
-// podcast.createNewImages(true);
+  // Do the same again for episodes
+  await podcast.createNewImages(false);
+}
 
-// Do the same again for episodes
-podcast.createNewImages(false);
+main().then(() => {
+  process.exit(0);
+});

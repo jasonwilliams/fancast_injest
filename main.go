@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/exec"
 	"time"
 
 	"bitbucket.org/jayflux/mypodcasts_injest/api"
@@ -64,6 +65,13 @@ func main() {
 		// https://godoc.org/gopkg.in/robfig/cron.v2
 		c := cron.New()
 		c.AddFunc("@hourly", func() { injest.UpdatePodcasts() })
+		c.AddFunc("@hourly", func() {
+			cmd := exec.Command("node", "imageProcessing/updateImages.js")
+			err := cmd.Run()
+			if err != nil {
+				log.Println(err)
+			}
+		})
 		c.AddFunc("@weekly", func() { injestFromBBC.CrawlBBC() })
 		c.Start()
 		go forever()
