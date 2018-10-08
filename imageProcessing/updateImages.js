@@ -97,9 +97,8 @@ class Podcast {
             let exists = await this.existsOnBucket(digest);
             // If image exists, we don't need to minify or upload
             if (!exists) {
-              await this.minifyImage(imgObj, ext, digest);
-              await this.uploadFiles(digest, '.png');
-              this.removeFiles(digest, ext);
+              let imageBuffers = await this.minifyImage(imgObj, ext, digest);
+              await this.uploadFiles(imageBuffers, digest, '.png');
             }
             await this.entryInDB(imgObj.id, digest, '.png');
           } catch (e) {
@@ -162,38 +161,53 @@ class Podcast {
     return axios({
       method: 'get',
       url: imageObj.imageurl,
-      responseType: 'stream'
+      responseType: 'arraybuffer'
     }).then((response) => {
-      return new Promise((resolve, reject) => {
-        const file = response.data.pipe(fs.createWriteStream(`./imageProcessing/imagesToBeProcessed/${digest}${ext}`));
-        file.on("finish", () => { resolve(); });
-        file.on("error", reject);
-      })
-    }).then(() => {
+      return Buffer.from(response.data);
+    }).then((buffer) => {
       // Resize the image
-      let w520 = sharp(`./imageProcessing/imagesToBeProcessed/${digest}${ext}`)
+      let w520 = sharp(buffer)
         .resize(520)
         .png() // This helps with image quality a lot
-        .toFile(`./imageProcessing/resized/${digest}--520w.png`);
-      let w320 = sharp(`imageProcessing/imagesToBeProcessed/${digest}${ext}`)
+        .toBuffer();
+      let w320 = sharp(buffer)
         .resize(320)
         .png() // This helps with image quality a lot
-        .toFile(`imageProcessing/resized/${digest}--320w.png`);
+        .toBuffer();
       return Promise.all([w520, w320]);
-    }).then(() => {
-      // Compress the image
-      return imagemin([`./imageProcessing/resized/*${digest}*.{jpg,png}`], './imageProcessing/processed', {
+    }).then((sizes) => {
+      // Lets set up promises
+      let promises = [];
+      // 520
+      promises.push(imagemin.buffer(sizes[0], {
         plugins: [
           imageminMozjpeg({ quality: '90', progressive: true }),
           imageminPngquant({ speed: 1 })
         ],
-      });
-    }).then(() => {
-      return imagemin([`./imageProcessing/resized/*${digest}*.{jpg,png}`], './imageProcessing/processed', {
+      }))
+      // 320
+      promises.push(imagemin.buffer(sizes[1], {
+        plugins: [
+          imageminMozjpeg({ quality: '90', progressive: true }),
+          imageminPngquant({ speed: 1 })
+        ],
+      }))
+
+      // 520 webp
+      promises.push(imagemin.buffer(sizes[0], {
         plugins: [
           imageminWebp()
         ],
-      });
+      }));
+
+      // 320 webp
+      promises.push(imagemin.buffer(sizes[1], {
+        plugins: [
+          imageminWebp()
+        ],
+      }));
+
+      return Promise.all(promises);
     })
   }
 
@@ -208,18 +222,6 @@ class Podcast {
     hash.update(imageObj.imageurl);
     let digest = hash.digest("hex").substring(0, 20);
     return digest;
-  }
-
-  removeFiles(digest, ext) {
-    fs.unlinkSync(`imageProcessing/imagesToBeProcessed/${digest}${ext}`);
-    fs.unlinkSync(`imageProcessing/resized/${digest}--320w.png`);
-    fs.unlinkSync(`imageProcessing/resized/${digest}--520w.png`);
-
-    fs.unlinkSync(`imageProcessing/processed/${digest}--520w.png`);
-    fs.unlinkSync(`imageProcessing/processed/${digest}--320w.png`);
-    fs.unlinkSync(`imageProcessing/processed/${digest}--520w.webp`);
-    fs.unlinkSync(`imageProcessing/processed/${digest}--320w.webp`);
-
   }
 
   entryInDB(id, digest, ext) {
@@ -237,10 +239,10 @@ class Podcast {
       })
   }
 
-  uploadFiles(digest, ext) {
-    let promises = [`${digest}--320w${ext}`, `${digest}--520w${ext}`, `${digest}--320w.webp`, `${digest}--520w.webp`].map(v => {
+  uploadFiles(buffers, digest, ext) {
+    let promises = [`${digest}--320w${ext}`, `${digest}--520w${ext}`, `${digest}--320w.webp`, `${digest}--520w.webp`].map((v, i) => {
       return new Promise((resolve, reject) => {
-        let data = fs.readFileSync(`imageProcessing/processed/${v}`);
+        let data = buffers[i];
 
         let contentType;
         let newExt = path.extname(v);
@@ -284,7 +286,7 @@ async function main() {
   console.log('------ Episodes ------');
 
   // Do the same again for episodes
-  await podcast.createNewImages(false);
+  // await podcast.createNewImages(false);
 }
 
 main().then(() => {
