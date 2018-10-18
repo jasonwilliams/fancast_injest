@@ -3,9 +3,9 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
 	"os"
 	"os/exec"
+	"runtime/pprof"
 	"time"
 
 	"bitbucket.org/jayflux/mypodcasts_injest/api"
@@ -13,6 +13,7 @@ import (
 
 	"bitbucket.org/jayflux/mypodcasts_injest/injest"
 	"bitbucket.org/jayflux/mypodcasts_injest/injestFromBBC"
+	"bitbucket.org/jayflux/mypodcasts_injest/logger"
 	"github.com/spf13/viper"
 	"gopkg.in/robfig/cron.v2"
 )
@@ -21,6 +22,8 @@ var build = flag.String("build", "", "Specify type of build")
 var dbFlag = flag.String("db", "", "update or backup")
 var updater = flag.Bool("cron", false, "Initiate application")
 var apiFlag = flag.Bool("api", false, "Start API")
+var cpuprofile = flag.Bool("cpuprofile", false, "write cpu profile to file")
+var log = logger.Log
 
 func main() {
 	// Setup Config
@@ -32,12 +35,23 @@ func main() {
 		log.Fatalf("error opening file: %v", err)
 	}
 	defer f.Close()
-	log.SetOutput(f)
-	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	log.Println("Application started")
 
 	// Parse commandline arguments
 	flag.Parse()
+
+	// Setup CPU Profiling
+	if *cpuprofile {
+		log.Println("profiling...")
+		f, err := os.Create("./testing.prof")
+		if err != nil {
+			log.Fatal(err)
+		}
+		if err := pprof.StartCPUProfile(f); err != nil {
+			log.Fatal("could not start CPU profile: ", err)
+		}
+		defer pprof.StopCPUProfile()
+	}
 	switch *build {
 	case "injest":
 		urls := make(chan string, 1)
@@ -50,7 +64,7 @@ func main() {
 		injestFromBBC.CrawlBBC()
 
 	case "update":
-		injest.UpdateNewPodcasts()
+		injest.UpdatePodcasts()
 	}
 
 	switch *dbFlag {

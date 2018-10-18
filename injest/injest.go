@@ -29,7 +29,9 @@ func Injest(input chan string, status chan int) {
 		}
 
 		if NotModified {
-			log.Println("Request 304 Not Modified, continue")
+			log.Printf("Request 304 Not Modified for %s", url)
+			// Even though we got a not modified response we should still record a fetch has happened
+			updateFetchForPodcastURL(url)
 			continue
 		}
 

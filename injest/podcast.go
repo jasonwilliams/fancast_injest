@@ -61,30 +61,38 @@ func process(feed *gofeed.Feed, url string) {
 		// If the old URL exists, then we need to make the change before we progress further...
 		// otherwise we will end up creating a new podcast
 		if urlExistsInDB(url) {
-			log.Println("Updating DB")
 			updatePodcastUrl(url, feed.ITunesExt.NewFeedURL)
 		}
 
 		url = feed.ITunesExt.NewFeedURL
 	}
 	// if podcast exists we should get an ID back, we can use this for our further queries
-	doesPodcastExist, id = podcastExists(url)
+	doesPodcastExist, id, digest := podcastExists(url)
 	if doesPodcastExist {
-		// Podcast exists, but some data may need updating
-		updatePodcastMetadata(feed, url)
-		processPodcastEpisodes(feed, id)
+		// Podcast exists in the DB, has there been a change? Lets diff the hashed RSS feeds
+		// If they match up then there's no need to update anything
+		if generateDigestFromPodcast(feed) != digest {
+			// Podcast exists, but some data may need updating
+			log.Printf("%s did not match %s", generateDigestFromPodcast(feed), digest)
+			log.Printf("%s exists updating meta data", id)
+			updatePodcastMetadata(feed, url)
+			log.Printf("%s exists updating episodes..", id)
+			// This gets all the hashes of the episodes
+			episodeHashes := getEpisodesHashesFromPodcast(id)
+			processPodcastEpisodes(feed, id, episodeHashes)
+		}
 	} else {
 		// Create a new podcast and return the ID so we can create its children
 		id := createNewPodcast(feed, url)
-		processPodcastEpisodes(feed, id)
+		processPodcastEpisodes(feed, id, make([]string, 0))
 	}
 
 }
 
 // processPodcastEpisodes will loop through each episode and add/update the database
-func processPodcastEpisodes(feed *gofeed.Feed, id string) {
+func processPodcastEpisodes(feed *gofeed.Feed, id string, hashes []string) {
 	for _, episode := range feed.Items {
-		processPodcastEpisode(episode, id)
+		processPodcastEpisode(episode, id, hashes)
 	}
 }
 
@@ -92,13 +100,13 @@ func processPodcastEpisodes(feed *gofeed.Feed, id string) {
 // Podcast may exist and we don't need to do anything
 // Podcast may exist but some metadata is outdated
 // Podcast does not exist
-func processPodcastEpisode(episode *gofeed.Item, parent string) {
-	if digestExists(episode) {
+func processPodcastEpisode(episode *gofeed.Item, parent string, hashes []string) {
+	if digestExists(episode, hashes) {
 		// no need to do anything, this episode is already in the DB and is up to date
 	} else if episodeGuidExists(episode) {
 
 		log.Printf("guid exists but change detected on %s\n", episode.GUID)
-		log.Println("Reinjesting....")
+		log.Println("Reinjesting episode....")
 		// Episode exists but digest is out of date, add all fields back in
 		updateEpisodeInDatabase(episode, parent)
 	} else {
@@ -171,6 +179,7 @@ func addEpisodeInDatabase(episode *gofeed.Item, parent string) {
 func updateEpisodeInDatabase(episode *gofeed.Item, parent string) {
 	m := prepareEpisodeForDB(episode)
 
+	log.Printf("begin transaction of %s to database", episode.GUID)
 	tx, err := db.Begin()
 	if err != nil {
 		log.Fatal("updateEpisodeInDatabase: Couldn't begin database transaction")
@@ -188,6 +197,7 @@ func updateEpisodeInDatabase(episode *gofeed.Item, parent string) {
 			log.Fatal(commitErr)
 		}
 	}
+	log.Printf("end transaction of %s to database", episode.GUID)
 
 }
 
@@ -221,24 +231,18 @@ func generateDigestFromPodcast(feed *gofeed.Feed) string {
 
 // digestExists is mainly used by podcast episode objects
 // Its a faster way than checking every single property
-func digestExists(episode *gofeed.Item) bool {
-
-	// lets start by hashing the episode object and see if we have something similar in the DB
-	hash := generateDigestFromEpisode(episode)
-	// we don't actually use title here, but it Scan returns an error object which we want
-	var title string
-	var isRows bool
-	err := db.QueryRow("SELECT title FROM podcast_episodes WHERE digest = $1;", hash).Scan(&title)
-	switch {
-	case err == sql.ErrNoRows:
-		isRows = false
-	case err != nil:
-		log.Fatal(err)
-	default:
-		isRows = true
+func digestExists(episode *gofeed.Item, hashes []string) bool {
+	// Contains tells whether a contains x.
+	contains := func(a []string, x string) bool {
+		for _, n := range a {
+			if x == n {
+				return true
+			}
+		}
+		return false
 	}
-
-	return isRows
+	digest := generateDigestFromEpisode(episode)
+	return contains(hashes, digest)
 }
 
 func preparePodcastForDB(feed *gofeed.Feed) map[string][]byte {
@@ -272,14 +276,39 @@ func preparePodcastForDB(feed *gofeed.Feed) map[string][]byte {
 
 	// generate timestamp
 	t := time.Now()
-	lastProcessed := t.Format(time.RFC3339)
-	m["last_fetch"] = []byte(lastProcessed)
+	lastFetch := t.Format(time.RFC3339)
+	m["last_fetch"] = []byte(lastFetch)
 
 	// generate last change, if hashes are different, date should be now()
 	// if hashes are the same, date will match what's already in the DB
 	m["last_change"] = []byte(getLastChanged(hash, url))
 
 	return m
+}
+
+// updateFetchForPodcastURL updates the timestamp for a podcast (by URL)
+func updateFetchForPodcastURL(url string) {
+	// generate timestamp
+	t := time.Now()
+	lastFetch := t.Format(time.RFC3339)
+
+	// Start transcation
+	tx, err := db.Begin()
+	if err != nil {
+		log.Println(err)
+	}
+	query := `UPDATE podcasts SET last_fetch = $1 where feed_url = $2`
+	_, writeErr := tx.Exec(query, lastFetch, url)
+	if writeErr != nil {
+		log.Println("updateFetchForURL: Could not write to DB")
+		log.Println(writeErr)
+	}
+	commitErr := tx.Commit()
+	if commitErr != nil {
+		log.Println("updateFetchForURL: Commit failed")
+		log.Fatal(commitErr)
+	}
+
 }
 
 // Update POLL Frequency
@@ -393,6 +422,7 @@ func updatePodcastMetadata(feed *gofeed.Feed, url string) {
 		log.Println("Commit failed")
 		log.Fatal(commitErr)
 	}
+
 }
 
 func createNewPodcast(feed *gofeed.Feed, url string) string {
@@ -438,21 +468,45 @@ func createNewPodcast(feed *gofeed.Feed, url string) string {
 
 // podcastExists checks the database to see if a particular podcast already exists.
 // We use the URL as a key to check, as at this point we won't know the GUID
-func podcastExists(url string) (bool, string) {
+func podcastExists(url string) (bool, string, string) {
 	// we don't actually use title here, but it Scan returns an error object which we want
 	var id string
-	err := db.QueryRow("SELECT id FROM podcasts WHERE feed_url = $1;", url).Scan(&id)
+	var digest sql.NullString
+	err := db.QueryRow("SELECT id, digest FROM podcasts WHERE feed_url = $1;", url).Scan(&id, &digest)
 	switch {
 	case err == sql.ErrNoRows:
-		return false, id
+		return false, "", id
 	case err != nil:
 		log.Fatal(err)
 	default:
-		return true, id
+		return true, id, digest.String
 	}
 
 	// we would never get here
-	return true, id
+	return true, id, digest.String
+}
+
+// getEpisodesHashesFromPodcast gets all of the episode hashes from a single podcast
+// This should save us a lot of time (not connecting to the DB for each episode and checking it exists)
+func getEpisodesHashesFromPodcast(id string) []string {
+	rows, err := db.Query("SELECT digest FROM podcast_episodes WHERE parent = $1;", id)
+	if err != nil {
+		log.Println(err)
+	}
+	defer rows.Close()
+	digests := make([]string, 0)
+	for rows.Next() {
+		var digest string
+		if err := rows.Scan(&digest); err != nil {
+			log.Println(err)
+		}
+		digests = append(digests, digest)
+	}
+	if err := rows.Err(); err != nil {
+		log.Fatal(err)
+	}
+	return digests
+
 }
 
 // GUID's of podcasts can vary a LOT

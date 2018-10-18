@@ -2,12 +2,12 @@ package main
 
 import (
 	"fmt"
-	"github.com/minio/minio-go"
-	"log"
 	"math"
 	"os"
 	"os/exec"
 	"time"
+
+	"github.com/minio/minio-go"
 )
 
 var accessKey string = os.Getenv("SPACES_KEY")
