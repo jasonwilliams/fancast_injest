@@ -73,10 +73,7 @@ func process(feed *gofeed.Feed, url string) {
 		// If they match up then there's no need to update anything
 		if generateDigestFromPodcast(feed) != digest {
 			// Podcast exists, but some data may need updating
-			log.Printf("%s did not match %s", generateDigestFromPodcast(feed), digest)
-			log.Printf("%s exists updating meta data", id)
 			updatePodcastMetadata(feed, url)
-			log.Printf("%s exists updating episodes..", id)
 			// This gets all the hashes of the episodes
 			episodeHashes := getEpisodesHashesFromPodcast(id)
 			processPodcastEpisodes(feed, id, episodeHashes)
@@ -179,7 +176,6 @@ func addEpisodeInDatabase(episode *gofeed.Item, parent string) {
 func updateEpisodeInDatabase(episode *gofeed.Item, parent string) {
 	m := prepareEpisodeForDB(episode)
 
-	log.Printf("begin transaction of %s to database", episode.GUID)
 	tx, err := db.Begin()
 	if err != nil {
 		log.Fatal("updateEpisodeInDatabase: Couldn't begin database transaction")
@@ -197,7 +193,6 @@ func updateEpisodeInDatabase(episode *gofeed.Item, parent string) {
 			log.Fatal(commitErr)
 		}
 	}
-	log.Printf("end transaction of %s to database", episode.GUID)
 
 }
 
