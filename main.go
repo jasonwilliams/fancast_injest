@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/exec"
 	"runtime/pprof"
-	"time"
 
 	"bitbucket.org/jayflux/mypodcasts_injest/api"
 	"bitbucket.org/jayflux/mypodcasts_injest/models"
@@ -88,7 +87,6 @@ func main() {
 		})
 		c.AddFunc("@weekly", func() { injestFromBBC.CrawlBBC() })
 		c.Start()
-		go forever()
 		select {}
 	}
 
@@ -112,10 +110,4 @@ func setupConfig() {
 		panic(fmt.Errorf("Fatal error config file: %s \n", err))
 	}
 
-}
-
-func forever() {
-	for {
-		time.Sleep(time.Second)
-	}
 }
