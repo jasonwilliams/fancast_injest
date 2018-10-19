@@ -6,4 +6,5 @@ sudo service postgresql start
 # ./mypodcasts_injest -cron=true &
 ./mypodcasts_injest -api &
 ./mypodcasts_injest -cron &
+yarn install
 /bin/bash
