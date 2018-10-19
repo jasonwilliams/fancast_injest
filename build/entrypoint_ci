@@ -4,7 +4,7 @@ sudo service postgresql start
 # sudo -u fancast psql -f /usr/local/src/bitbucket.org/jayflux/mypodcasts_injest/build/indexes.sql
 # sudo -u fancast psql -c "ANALYZE"
 # ./mypodcasts_injest -cron=true &
+yarn install
 ./mypodcasts_injest -api &
 ./mypodcasts_injest -cron &
-yarn install
 /bin/bash
