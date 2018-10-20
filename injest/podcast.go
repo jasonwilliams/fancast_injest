@@ -77,6 +77,9 @@ func process(feed *gofeed.Feed, url string) {
 			// This gets all the hashes of the episodes
 			episodeHashes := getEpisodesHashesFromPodcast(id)
 			processPodcastEpisodes(feed, id, episodeHashes)
+		} else {
+			// Don't need to do anything but update fetch date
+			updateFetchForPodcastURL(url)
 		}
 	} else {
 		// Create a new podcast and return the ID so we can create its children
@@ -283,6 +286,7 @@ func preparePodcastForDB(feed *gofeed.Feed) map[string][]byte {
 
 // updateFetchForPodcastURL updates the timestamp for a podcast (by URL)
 func updateFetchForPodcastURL(url string) {
+	log.Printf("updatingFetchForPodcast: %s", url)
 	// generate timestamp
 	t := time.Now()
 	lastFetch := t.Format(time.RFC3339)
@@ -339,7 +343,7 @@ func updatePollFrequency(url string) int8 {
 	}
 
 	// get the difference from now to lastChange
-	diff := t.Sub(lastChangeTime)
+	diff := t.Sub(lastChangeTime).Hours()
 
 	if diff > 730 {
 		return 48

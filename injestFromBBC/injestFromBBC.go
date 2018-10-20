@@ -51,16 +51,8 @@ func CrawlBBC() {
 		log.Fatal("Unable to unmarshal JSON from body of https://www.bbc.co.uk/podcasts.json")
 	}
 
-	// Create channel to put our URLS into
-	// We don't want to overload the injestor, so lets buffer to 5
-	urls := make(chan string, 5)
-	status := make(chan int)
-	go injest.Injest(urls, status)
-
 	for _, podcast := range podcastResult.Podcasts {
-		urls <- podcast.FeedURL
+		injest.Injest(podcast.FeedURL)
 	}
 
-	close(urls)
-	<-status // this lets us know that the ingester has finished
 }

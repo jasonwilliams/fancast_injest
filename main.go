@@ -53,17 +53,15 @@ func main() {
 	}
 	switch *build {
 	case "injest":
-		urls := make(chan string, 1)
-		status := make(chan int)
-		urls <- flag.Arg(0)
-		go injest.Injest(urls, status)
-		close(urls)
-		<-status
+		go injest.Injest(flag.Arg(0))
 	case "bbc":
 		injestFromBBC.CrawlBBC()
 
 	case "update":
 		injest.UpdatePodcasts()
+
+	case "update-frequencies":
+		injest.UpdatePollFrequencies()
 	}
 
 	switch *dbFlag {
