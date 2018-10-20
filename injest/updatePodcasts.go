@@ -20,6 +20,7 @@ func UpdateNewPodcasts() {
 
 // UpdatePodcasts updates podcasts which need updating
 func UpdatePodcasts() {
+	log.Println("Performing update on podcasts..")
 	// Fetch podcasts which haven't had their last_change set (new podcasts)
 	// This should be a one-off
 	var feedURL string
@@ -32,7 +33,6 @@ func UpdatePodcasts() {
 	defer rows.Close()
 	for rows.Next() {
 		rows.Scan(&feedURL)
-		log.Printf("Scanning: %s", feedURL)
 		Injest(feedURL)
 	}
 }

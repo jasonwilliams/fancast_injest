@@ -286,7 +286,6 @@ func preparePodcastForDB(feed *gofeed.Feed) map[string][]byte {
 
 // updateFetchForPodcastURL updates the timestamp for a podcast (by URL)
 func updateFetchForPodcastURL(url string) {
-	log.Printf("updatingFetchForPodcast: %s", url)
 	// generate timestamp
 	t := time.Now()
 	lastFetch := t.Format(time.RFC3339)
