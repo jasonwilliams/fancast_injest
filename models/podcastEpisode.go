@@ -7,9 +7,6 @@ import (
 	"bitbucket.org/jayflux/mypodcasts_injest/logger"
 )
 
-// The format of Published in the database - using reference time
-var episodePublishedFormat = "Mon, 2 Jan 2006 15:04:05 -0700"
-
 // The format of the API output - using reference time
 var episodePublishedOutputFormat = "Jan 02, 2006"
 
@@ -63,7 +60,7 @@ func GetPodcastEpisodes(id string, datetime time.Time) []PodcastEpisode {
 }
 
 func (p *PodcastEpisode) formatPublished() {
-	timeStr, err := time.Parse(episodePublishedFormat, p.Published)
+	timeStr, err := time.Parse(time.RFC1123, p.Published)
 	if err != nil {
 		logger.Log.Println(err)
 	}

@@ -286,7 +286,7 @@ async function main() {
   console.log('------ Episodes ------');
 
   // Do the same again for episodes
-  // await podcast.createNewImages(false);
+  await podcast.createNewImages(false);
 }
 
 main().then(() => {

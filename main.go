@@ -53,7 +53,7 @@ func main() {
 	}
 	switch *build {
 	case "injest":
-		go injest.Injest(flag.Arg(0))
+		injest.Injest(flag.Arg(0))
 	case "bbc":
 		injestFromBBC.CrawlBBC()
 

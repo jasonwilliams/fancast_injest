@@ -183,7 +183,7 @@ func updateEpisodeInDatabase(episode *gofeed.Item, parent string) {
 	if err != nil {
 		log.Fatal("updateEpisodeInDatabase: Couldn't begin database transaction")
 	}
-	_, writeErr := tx.Exec("UPDATE podcast_episodes SET (guid, title, description, published, published_parsed, author, image, enclosures, digest, itunes_ext, last_fetch, parent) = ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) WHERE guid = $1;",
+	_, writeErr := tx.Exec("UPDATE podcast_episodes SET (guid, title, description, published, published_parsed, author, image, enclosures, digest, itunes_ext, last_fetch, parent) = ($1, $2, $3, $4, $5, $6, image || $7, $8, $9, $10, $11, $12) WHERE guid = $1;",
 		episode.GUID, episode.Title, episode.Description, episode.Published, episode.PublishedParsed, m["author"], m["image"], m["enclosures"], m["digest"], m["itunesExt"], m["last_fetch"], parent)
 
 	if writeErr != nil {
@@ -408,7 +408,7 @@ func updatePodcastMetadata(feed *gofeed.Feed, url string) {
 
 	query := `
 	UPDATE podcasts SET (last_fetch, title, description, link, updated, updated_parsed, author, language, image, itunes_ext, categories, copyright, poll_frequency, last_change, digest) =
-	($2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16) where feed_url = $1;
+	($2, $3, $4, $5, $6, $7, $8, $9, image || $10, $11, $12, $13, $14, $15, $16) where feed_url = $1;
 	`
 	_, writeErr := tx.Exec(query, url, m["last_fetch"], feed.Title, feed.Description, feed.Link, feed.Updated, feed.UpdatedParsed, m["author"], feed.Language, m["image"], m["ItunesExt"], m["categories"], feed.Copyright, freq, m["last_change"], m["digest"])
 	if writeErr != nil {
