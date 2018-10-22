@@ -60,7 +60,7 @@ func GetPodcastEpisodes(id string, datetime time.Time) []PodcastEpisode {
 }
 
 func (p *PodcastEpisode) formatPublished() {
-	timeStr, err := time.Parse(time.RFC1123, p.PublishedParsed)
+	timeStr, err := time.Parse(time.RFC3339, p.PublishedParsed)
 	if err != nil {
 		logger.Log.Println(err)
 	}
