@@ -439,7 +439,7 @@ func createNewPodcast(feed *gofeed.Feed, url string) string {
 	INSERT INTO podcasts (id, last_fetch, title, description, link, updated, updated_parsed, author, language, image, itunes_ext, categories, copyright, poll_frequency, last_change, digest, feed_url) VALUES
 	($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17);
 	`
-	res, writeErr := tx.Exec(query, id, m["last_fetch"], feed.Title, feed.Description, feed.Link, feed.Updated, feed.UpdatedParsed, m["author"], feed.Language, m["image"], m["ItunesExt"], m["categories"], feed.Copyright, 8, m["last_change"], m["digest"], url)
+	_, writeErr := tx.Exec(query, id, m["last_fetch"], feed.Title, feed.Description, feed.Link, feed.Updated, feed.UpdatedParsed, m["author"], feed.Language, m["image"], m["ItunesExt"], m["categories"], feed.Copyright, 8, m["last_change"], m["digest"], url)
 	if writeErr != nil {
 		log.Println("Could not write to DB")
 		log.Println(writeErr)
