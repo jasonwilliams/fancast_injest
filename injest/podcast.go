@@ -458,8 +458,7 @@ func createNewPodcast(feed *gofeed.Feed, url string) string {
 		}
 	}
 
-	r, _ := res.RowsAffected()
-	log.Println(r)
+	log.Println("New Podcast created, Feed: %s", url)
 
 	return id
 }

@@ -75,15 +75,22 @@ func main() {
 	if *updater {
 		// https://godoc.org/gopkg.in/robfig/cron.v2
 		c := cron.New()
-		c.AddFunc("@hourly", func() { injest.UpdatePodcasts() })
 		c.AddFunc("@hourly", func() {
+			log.Println("Starting update of podcasts")
+			injest.UpdatePodcasts()
+		})
+		c.AddFunc("@hourly", func() {
+			log.Println("Calling imageProcessing/updateImages.js")
 			cmd := exec.Command("node", "imageProcessing/updateImages.js")
 			err := cmd.Run()
 			if err != nil {
 				log.Println(err)
 			}
 		})
-		c.AddFunc("@weekly", func() { injestFromBBC.CrawlBBC() })
+		c.AddFunc("@weekly", func() {
+			log.Println("Injesting from BBC")
+			injestFromBBC.CrawlBBC()
+		})
 		c.Start()
 		select {}
 	}
