@@ -37,6 +37,8 @@ func Injest(url string) {
 	if err != nil {
 		log.Printf("Injest: Error parsing %s\n", url)
 		log.Println(err)
+		// Early return instead of fatal erroring, hopefully this should keep the process running
+		return
 	}
 
 	process(feed, url)
