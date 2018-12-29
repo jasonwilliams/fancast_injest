@@ -1,14 +1,14 @@
 FROM ubuntu:18.04
 
 RUN ln -fs /usr/share/zoneinfo/Europe/London /etc/localtime
-RUN apt-get update && apt-get upgrade -y && apt-get install wget curl vim sudo git -y
+RUN apt-get update -y && apt-get upgrade -y && apt-get install wget curl vim sudo git -y
 RUN apt-get install nginx -y
 
 # Golang
 RUN apt-get install software-properties-common -y && \
-    add-apt-repository ppa:gophers/archive -y && \
+    add-apt-repository ppa:longsleep/golang-backports -y && \
     apt-get update -y && \
-    apt-get install golang-1.10-go -y
+    apt-get install golang-go -y
 
 # # Create the "fancast" user
 # # Give build access to this env, passed in via docker build
@@ -30,20 +30,21 @@ RUN echo 'fancast ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers
 
 # USER fancast
 
-RUN export PATH=/usr/lib/go-1.10/bin:$PATH
-RUN echo "export PATH=/usr/lib/go-1.10/bin:$PATH" >> ~/.bashrc
+RUN export PATH=/usr/lib/go-1.11/bin:$PATH
+RUN echo "export PATH=/usr/lib/go-1.11/bin:$PATH" >> ~/.bashrc
 
 # Postgresql
-RUN echo "deb http://apt.postgresql.org/pub/repos/apt/ zesty-pgdg main" > /etc/apt/sources.list.d/pgdg.list
 RUN wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add -
+RUN echo "deb http://apt.postgresql.org/pub/repos/apt/ bionic-pgdg main" > /etc/apt/sources.list.d/pgdg.list
 RUN sudo apt-get update -y
-RUN sudo apt-get install postgresql-10 -y
-RUN echo "listen_addresses = '*'" >> /etc/postgresql/10/main/postgresql.conf
-RUN echo "host    all             all              0.0.0.0/0              md5" >> /etc/postgresql/10/main/pg_hba.conf
-RUN echo "host    all             all              ::/0                   md5" >> /etc/postgresql/10/main/pg_hba.conf
+RUN sudo apt-get install postgresql-11 -y
+RUN echo "listen_addresses = '*'" >> /etc/postgresql/11/main/postgresql.conf
+RUN echo "host    all             all              0.0.0.0/0              md5" >> /etc/postgresql/11/main/pg_hba.conf
+RUN echo "host    all             all              ::/0                   md5" >> /etc/postgresql/11/main/pg_hba.conf
 
 
 ENV GOPATH /usr/local
+ENV GO111MODULE=on
 # Used by Viper Config
 ENV APP_DIR /usr/local/src/bitbucket.org/jayflux/mypodcasts_injest
 
@@ -59,9 +60,10 @@ WORKDIR /usr/local/src/bitbucket.org/jayflux/mypodcasts_injest
 ARG SPACES_KEY
 ARG SPACES_SECRET_KEY
 
-RUN /usr/lib/go-1.10/bin/go get -u github.com/golang/dep/cmd/dep
-RUN /usr/local/bin/dep ensure
-RUN /usr/lib/go-1.10/bin/go build
+RUN /usr/lib/go-1.11/bin/go get -u ./... && \
+/usr/lib/go-1.11/bin/go mod vendor && \
+/usr/lib/go-1.11/bin/go build && \
+
 RUN service postgresql start && sudo -u postgres psql -c "CREATE USER fancast WITH PASSWORD 'dev';" && sudo -u postgres psql -c "ALTER USER fancast WITH SUPERUSER;" && sudo -u postgres psql -c "CREATE DATABASE fancast OWNER fancast;"
 RUN mkdir /var/log/fancast
 RUN service postgresql start && ./mypodcasts_injest -db update
