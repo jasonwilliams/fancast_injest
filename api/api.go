@@ -18,6 +18,8 @@ import (
 func API() {
 	router := mux.NewRouter()
 	router.HandleFunc("/test", Test).Methods("GET")
+	// Get metadata about latest podcasts
+	router.HandleFunc("/podcasts/latest", latestPodcastsHandler)
 	// Get metadata about podcast
 	router.HandleFunc("/podcasts/{podcast}", podcastHandler)
 	// Get metadata about individual episode
@@ -32,6 +34,14 @@ func Test(w http.ResponseWriter, r *http.Request) {
 
 }
 
+// Handle latest podcasts
+func latestPodcastsHandler(w http.ResponseWriter, r *http.Request) {
+	podcasts := models.GetUpdatedPodcasts()
+	podcastsJSON, _ := json.Marshal(podcasts)
+	w.Header().Set("Content-Type", "application/json")
+	fmt.Fprint(w, string(podcastsJSON))
+}
+
 // Handle the podcast homepage
 func podcastHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
@@ -39,7 +49,6 @@ func podcastHandler(w http.ResponseWriter, r *http.Request) {
 	podcastJSON, _ := json.Marshal(podcast)
 	w.Header().Set("Content-Type", "application/json")
 	fmt.Fprint(w, string(podcastJSON))
-
 }
 
 // Handle the podcast homepage

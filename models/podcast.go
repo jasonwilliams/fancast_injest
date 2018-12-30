@@ -29,6 +29,26 @@ func GetPodcast(id string) Podcast {
 	return podcast
 }
 
+// GetUpdatedPodcasts returns a list of podcasts ordered by last changed
+func GetUpdatedPodcasts() []Podcast {
+	var podcasts []Podcast
+	rows, err := db.Query("select id, title, description, image from podcasts ORDER BY last_change desc LIMIT 20")
+	if err != nil {
+		logger.Log.Println(err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var podcast Podcast
+		if err := rows.Scan(&podcast.ID, &podcast.Title, &podcast.Description, &podcast.Image); err != nil {
+			logger.Log.Fatal(err)
+		}
+
+		podcasts = append(podcasts, podcast)
+	}
+
+	return podcasts
+}
+
 // GetEpisodes fetches the first 20 episodes related to this podcast
 func (p Podcast) GetEpisodes() []PodcastEpisode {
 	// First lets get a date from the past
