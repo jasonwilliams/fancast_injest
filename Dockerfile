@@ -62,7 +62,7 @@ ARG SPACES_SECRET_KEY
 
 RUN /usr/lib/go-1.11/bin/go get -u ./... && \
 /usr/lib/go-1.11/bin/go mod vendor && \
-/usr/lib/go-1.11/bin/go build && \
+/usr/lib/go-1.11/bin/go build
 
 RUN service postgresql start && sudo -u postgres psql -c "CREATE USER fancast WITH PASSWORD 'dev';" && sudo -u postgres psql -c "ALTER USER fancast WITH SUPERUSER;" && sudo -u postgres psql -c "CREATE DATABASE fancast OWNER fancast;"
 RUN mkdir /var/log/fancast
