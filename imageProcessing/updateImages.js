@@ -240,7 +240,7 @@ class Podcast {
   }
 
   uploadFiles(buffers, digest, ext) {
-    let promises = [`${digest}--320w${ext}`, `${digest}--520w${ext}`, `${digest}--320w.webp`, `${digest}--520w.webp`].map((v, i) => {
+    let promises = [`${digest}--520w${ext}`, `${digest}--320w${ext}`, `${digest}--520w.webp`, `${digest}--320w.webp`].map((v, i) => {
       return new Promise((resolve, reject) => {
         let data = buffers[i];
 
