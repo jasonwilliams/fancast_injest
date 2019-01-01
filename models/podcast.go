@@ -32,7 +32,8 @@ func GetPodcast(id string) Podcast {
 // GetUpdatedPodcasts returns a list of podcasts ordered by last changed
 func GetUpdatedPodcasts() []Podcast {
 	var podcasts []Podcast
-	rows, err := db.Query("select id, title, description, image from podcasts ORDER BY last_change desc LIMIT 20")
+	// Select all podcast episodes ordered by published then return the brand
+	rows, err := db.Query("select podcasts.id, podcasts.title, podcasts.description, podcasts.image from podcast_episodes inner join podcasts ON (podcast_episodes.parent = podcasts.id) order by published_parsed desc LIMIT 20")
 	if err != nil {
 		logger.Log.Println(err)
 	}
