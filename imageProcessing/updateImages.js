@@ -1,5 +1,4 @@
 // This script will check the database for original images and upload optimized ones
-let fs = require('fs');
 let crypto = require('crypto');
 let path = require('path');
 
