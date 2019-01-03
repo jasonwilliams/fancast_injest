@@ -436,8 +436,8 @@ func createNewPodcast(feed *gofeed.Feed, url string) string {
 	// _, writeErr := tx.Exec("INSERT INTO podcasts(id, title, description, link, updated, updated_parsed, author, language, image, itunes_ext, categories, copyright, last_fetch, feed_url, digest, poll_frequency) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16);",
 	// id, feed.Title, feed.Description, feed.Link, feed.Updated, feed.UpdatedParsed, m["author"], feed.Language, m["image"], m["ItunesExt"], m["categories"], feed.Copyright, m["last_fetch"], url, m["digest"], 8)
 	query := `
-	INSERT INTO podcasts (id, last_fetch, title, description, link, updated, updated_parsed, author, language, image, itunes_ext, categories, copyright, poll_frequency, last_change, digest, feed_url) VALUES
-	($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17);
+	INSERT INTO podcasts (id, last_fetch, title, description, link, updated, updated_parsed, author, language, image, itunes_ext, categories, copyright, poll_frequency, last_change, digest, feed_url, date_added) VALUES
+	($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, now());
 	`
 	_, writeErr := tx.Exec(query, id, m["last_fetch"], feed.Title, feed.Description, feed.Link, feed.Updated, feed.UpdatedParsed, m["author"], feed.Language, m["image"], m["ItunesExt"], m["categories"], feed.Copyright, 8, m["last_change"], m["digest"], url)
 	if writeErr != nil {
