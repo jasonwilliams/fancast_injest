@@ -1,7 +1,7 @@
 {
   "dependencies": {
     "aws-sdk": "^2.304.0",
-    "axios": "^0.18.0",
+    "axios": "^0.18.1",
     "config": "^2.0.1",
     "imagemin": "^6.0.0",
     "imagemin-mozjpeg": "^7.0.0",
